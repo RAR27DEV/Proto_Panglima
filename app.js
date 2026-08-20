@@ -312,7 +312,11 @@ const pageMap = {
   'tagihan':         () => renderList('tagihan'),
   'uang-keluar-lk':  () => renderList('uangKeluarLK'),
   'uang-masuk':      () => renderList('uangMasuk'),
-  'perjalanan-list': () => renderPerjalananList(currentRuteId),
+  'pj-barang-terjual': () => renderCategoryTripList(currentRuteId, 'barangTerjual'),
+  'pj-rekap-piutang':  () => renderCategoryTripList(currentRuteId, 'rekapPiutang'),
+  'pj-tagihan':        () => renderCategoryTripList(currentRuteId, 'tagihan'),
+  'pj-uang-keluar':    () => renderCategoryTripList(currentRuteId, 'uangKeluarLK'),
+  'pj-uang-masuk':     () => renderCategoryTripList(currentRuteId, 'uangMasuk'),
   'stok-toko':       renderStok,
   'laporan-keuangan':renderLaporan,
   'pengaturan-rute': () => renderList('ruteList'),
@@ -329,7 +333,11 @@ const pageTitles = {
   'tagihan':         'Tagihan (Rute)',
   'uang-keluar-lk':  'Uang Keluar (Rute)',
   'uang-masuk':      'Uang Masuk (Rute)',
-  'perjalanan-list': 'Daftar Perjalanan',
+  'pj-barang-terjual': 'Barang Terjual',
+  'pj-rekap-piutang':  'Rekap Piutang',
+  'pj-tagihan':        'Tagihan',
+  'pj-uang-keluar':    'Uang Keluar',
+  'pj-uang-masuk':     'Uang Masuk',
   'stok-toko':       'Stok Toko',
   'laporan-keuangan':'Laporan Keuangan',
   'pengaturan-rute': 'Manajemen Rute',
@@ -424,8 +432,6 @@ window.addEventListener('popstate', (e) => {
   const state = e.state;
   if (!state || state.type === 'page') {
     navigate(state ? state.page : 'dashboard', state ? state.ruteId : null, { fromHistory: true });
-  } else if (state.type === 'pjMenu') {
-    openPerjalananMenu(state.ruteId, state.perjalananId, { fromHistory: true });
   } else if (state.type === 'pjCategory') {
     openPerjalananCategory(state.ruteId, state.perjalananId, state.key, { fromHistory: true });
   }
@@ -476,8 +482,20 @@ function renderRuteSidebar() {
         <span class="chevron" id="chevron-rute-${rute.id}">▼</span>
       </div>
       <div class="submenu" id="submenu-rute-${rute.id}">
-        <a class="nav-item" data-page="perjalanan-list" data-rute="${rute.id}">
-          <span class="nav-icon">🚚</span><span>Daftar Perjalanan</span>
+        <a class="nav-item" data-page="pj-barang-terjual" data-rute="${rute.id}">
+          <span class="nav-icon">🚛</span><span>Barang Terjual</span>
+        </a>
+        <a class="nav-item" data-page="pj-rekap-piutang" data-rute="${rute.id}">
+          <span class="nav-icon">📑</span><span>Rekap Piutang</span>
+        </a>
+        <a class="nav-item" data-page="pj-tagihan" data-rute="${rute.id}">
+          <span class="nav-icon">🧾</span><span>Tagihan</span>
+        </a>
+        <a class="nav-item" data-page="pj-uang-keluar" data-rute="${rute.id}">
+          <span class="nav-icon">💸</span><span>Uang Keluar</span>
+        </a>
+        <a class="nav-item" data-page="pj-uang-masuk" data-rute="${rute.id}">
+          <span class="nav-icon">💰</span><span>Uang Masuk</span>
         </a>
       </div>
     `;
@@ -984,7 +1002,7 @@ function formPerjalanan(data = {}) {
   </form>`;
 }
 
-function openAddPerjalanan(ruteId) {
+function openAddPerjalanan(ruteId, key) {
   openModal('🚚 Tambah Perjalanan', formPerjalanan(), (form) => {
     const fd = Object.fromEntries(new FormData(form));
     fd.id = uid();
@@ -992,12 +1010,12 @@ function openAddPerjalanan(ruteId) {
     store.perjalananList.push(fd);
     saveStore();
     closeModal();
-    renderPerjalananList(ruteId);
+    renderCategoryTripList(ruteId, key);
     showToast('Perjalanan berhasil ditambahkan!', 'success');
   });
 }
 
-function openEditPerjalanan(id) {
+function openEditPerjalanan(id, key) {
   const item = store.perjalananList.find(x => x.id === id);
   if (!item) return;
   openModal('✏️ Edit Perjalanan', formPerjalanan(item), (form) => {
@@ -1006,12 +1024,12 @@ function openEditPerjalanan(id) {
     store.perjalananList[idx] = { ...item, ...fd };
     saveStore();
     closeModal();
-    renderPerjalananList(item.ruteId);
+    renderCategoryTripList(item.ruteId, key);
     showToast('Perjalanan berhasil diperbarui!', 'success');
   });
 }
 
-function deletePerjalanan(id, ruteId) {
+function deletePerjalanan(id, ruteId, key) {
   const html = `
     <div style="padding:10px 0 20px;text-align:center">
       <p style="margin-bottom:8px;font-size:15px;color:var(--text-secondary)">Yakin ingin menghapus perjalanan ini?</p>
@@ -1030,7 +1048,7 @@ function deletePerjalanan(id, ruteId) {
     saveStore();
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
-    renderPerjalananList(ruteId);
+    renderCategoryTripList(ruteId, key);
     showToast('Perjalanan berhasil dihapus.', 'info');
   });
 }
@@ -1039,49 +1057,58 @@ function perjalananLabel(pj) {
   return `${formatDate(pj.tanggalMulai)} — ${formatDate(pj.tanggalSelesai)}`;
 }
 
-function renderPerjalananList(ruteId) {
+const PERJALANAN_KEYS = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluarLK', 'uangMasuk'];
+const LEGACY_PAGE_FOR_KEY = {
+  barangTerjual: 'barang-terjual', rekapPiutang: 'rekap-piutang', tagihan: 'tagihan',
+  uangKeluarLK: 'uang-keluar-lk', uangMasuk: 'uang-masuk',
+};
+const PJ_PAGE_FOR_KEY = {
+  barangTerjual: 'pj-barang-terjual', rekapPiutang: 'pj-rekap-piutang', tagihan: 'pj-tagihan',
+  uangKeluarLK: 'pj-uang-keluar', uangMasuk: 'pj-uang-masuk',
+};
+
+function renderCategoryTripList(ruteId, key) {
   const content = document.getElementById('content');
   const rute = store.ruteList.find(x => x.id === ruteId);
+  const cfg = listConfig[key];
   const trips = store.perjalananList
     .filter(x => x.ruteId === ruteId)
     .slice()
     .sort((a, b) => b.tanggalMulai.localeCompare(a.tanggalMulai));
 
-  function countRecords(pj) {
-    const keys = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluarLK', 'uangMasuk'];
-    return keys.reduce((s, k) => s + store[k].filter(x => x.perjalananId === pj.id).length, 0);
-  }
-
   const html = `
   <div class="page-anim">
     <div class="page-header">
       <div>
-        <div class="page-title">🚚 Daftar Perjalanan</div>
-        <div class="page-subtitle">Setiap perjalanan (sekali jalan) untuk rute ${rute ? rute.nama : ''} punya laporannya sendiri</div>
+        <div class="page-title">${cfg.icon} ${cfg.title}</div>
+        <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — dikelompokkan per perjalanan (sekali jalan)</div>
       </div>
       <button class="btn btn-primary" id="btn-add-perjalanan">+ Tambah Perjalanan</button>
     </div>
     <div class="card">
       <div class="card-header">
-        <div class="card-title">Perjalanan Rute ${rute ? rute.nama : ''}</div>
+        <div class="card-title">Daftar Perjalanan</div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>No</th><th>Periode Perjalanan</th><th>Jumlah Transaksi</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>No</th><th>Periode Perjalanan</th><th>Jumlah Data ${cfg.title}</th><th>Aksi</th></tr></thead>
           <tbody>
-            ${trips.length ? trips.map((pj, i) => `
+            ${trips.length ? trips.map((pj, i) => {
+              const count = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === pj.id).length;
+              return `
               <tr>
                 <td class="group-no-cell" style="width:44px;text-align:center;color:var(--text-muted);">${i + 1}</td>
-                <td class="primary" style="cursor:pointer;" onclick="openPerjalananMenu('${ruteId}','${pj.id}')">${perjalananLabel(pj)}</td>
-                <td>${countRecords(pj)} data</td>
+                <td class="primary" style="cursor:pointer;" onclick="openPerjalananCategory('${ruteId}','${pj.id}','${key}')">${perjalananLabel(pj)}</td>
+                <td>${count} data</td>
                 <td>
                   <div class="actions">
-                    <button class="btn btn-primary btn-sm" onclick="openPerjalananMenu('${ruteId}','${pj.id}')">📄 Lihat Laporan</button>
-                    <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}')">✏️ Edit</button>
-                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}')">🗑️</button>
+                    <button class="btn btn-primary btn-sm" onclick="openPerjalananCategory('${ruteId}','${pj.id}','${key}')">📄 Lihat & Cetak</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}','${key}')">✏️ Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}','${key}')">🗑️</button>
                   </div>
                 </td>
-              </tr>`).join('') : `<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">
+              </tr>`;
+            }).join('') : `<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">
                 <div class="empty-state-icon">📭</div>
                 <div class="empty-state-title">Belum ada perjalanan</div>
                 <div class="empty-state-sub">Klik "+ Tambah Perjalanan" untuk mencatat perjalanan pertama</div>
@@ -1092,101 +1119,16 @@ function renderPerjalananList(ruteId) {
     </div>
 
     <div style="margin-top:16px; font-size:13px; color:var(--text-muted);">
-      Lihat riwayat lengkap rute ini (semua data, termasuk yang belum dikelompokkan ke perjalanan):
-      <a href="#" class="pj-legacy-link" data-page="barang-terjual" style="color:var(--accent);">Barang Terjual</a>,
-      <a href="#" class="pj-legacy-link" data-page="rekap-piutang" style="color:var(--accent);">Rekap Piutang</a>,
-      <a href="#" class="pj-legacy-link" data-page="tagihan" style="color:var(--accent);">Tagihan</a>,
-      <a href="#" class="pj-legacy-link" data-page="uang-keluar-lk" style="color:var(--accent);">Uang Keluar</a>,
-      <a href="#" class="pj-legacy-link" data-page="uang-masuk" style="color:var(--accent);">Uang Masuk</a>
+      Lihat riwayat lengkap ${cfg.title.toLowerCase()} rute ini (semua data, termasuk yang belum dikelompokkan ke perjalanan):
+      <a href="#" id="pj-legacy-link" style="color:var(--accent);">Lihat Semua</a>
     </div>
   </div>`;
 
   content.innerHTML = html;
-  document.getElementById('btn-add-perjalanan').addEventListener('click', () => openAddPerjalanan(ruteId));
-  document.querySelectorAll('.pj-legacy-link').forEach(a => {
-    a.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigate(a.dataset.page, ruteId);
-    });
-  });
-}
-
-const PERJALANAN_KEYS = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluarLK', 'uangMasuk'];
-
-function openPerjalananMenu(ruteId, perjalananId, opts = {}) {
-  currentPage = 'perjalanan-list';
-  currentRuteId = ruteId;
-  currentPerjalananId = perjalananId;
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.page === 'perjalanan-list' && el.dataset.rute === ruteId);
-  });
-  const rute = store.ruteList.find(x => x.id === ruteId);
-  const pj = store.perjalananList.find(x => x.id === perjalananId);
-  document.getElementById('topbar-title').textContent =
-    `Perjalanan - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
-  renderPerjalananMenu(ruteId, perjalananId);
-  document.getElementById('sidebar').classList.remove('open');
-  pushNavState({ type: 'pjMenu', ruteId, perjalananId }, opts);
-}
-
-function renderPerjalananMenu(ruteId, perjalananId) {
-  const content = document.getElementById('content');
-  const rute = store.ruteList.find(x => x.id === ruteId);
-  const pj = store.perjalananList.find(x => x.id === perjalananId);
-  if (!pj) { renderPerjalananList(ruteId); return; }
-
-  const penjualan = store.barangTerjual.filter(x => x.perjalananId === perjalananId)
-    .reduce((s, b) => s + b.jumlah * b.hargaJual, 0);
-  const masuk = store.uangMasuk.filter(x => x.perjalananId === perjalananId)
-    .reduce((s, x) => s + Number(x.jumlah || 0), 0);
-  const keluar = store.uangKeluarLK.filter(x => x.perjalananId === perjalananId)
-    .reduce((s, x) => s + Number(x.jumlah || 0), 0);
-  const hasil = penjualan + masuk - keluar;
-
-  const cardsHtml = PERJALANAN_KEYS.map(key => {
-    const cfg = listConfig[key];
-    const count = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId).length;
-    return `
-      <div class="card" style="cursor:pointer;" onclick="openPerjalananCategory('${ruteId}','${perjalananId}','${key}')">
-        <div style="padding:24px; display:flex; align-items:center; gap:16px;">
-          <div style="font-size:32px;">${cfg.icon}</div>
-          <div style="flex:1;">
-            <div style="font-weight:700; font-size:15px; color:var(--text-primary);">${cfg.title}</div>
-            <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">${count} data tercatat</div>
-          </div>
-          <div style="color:var(--text-muted);">›</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  content.innerHTML = `
-  <div class="page-anim">
-    <div class="page-header" style="align-items:center;">
-      <div>
-        <a href="#" id="pj-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Daftar Perjalanan</a>
-        <div class="page-title" style="margin-top:6px;">🚚 Perjalanan ${rute ? rute.nama : ''}</div>
-        <div class="page-subtitle">Periode: ${perjalananLabel(pj)} — pilih kategori data untuk melihat & mencetak</div>
-      </div>
-    </div>
-
-    <div class="profit-card" style="margin-bottom:24px; background: var(--bg-card); border-left: 4px solid ${hasil >= 0 ? 'var(--green)' : 'var(--red)'}">
-      <div class="profit-card-left">
-        <h3 style="color:var(--text-secondary)">Hasil Perjalanan Ini (Penjualan + Uang Masuk − Uang Keluar)</h3>
-        <div class="big-val" style="color: ${hasil >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(Math.abs(hasil))}</div>
-      </div>
-      <div class="profit-icon">${hasil >= 0 ? '📈' : '📉'}</div>
-    </div>
-
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
-      ${cardsHtml}
-    </div>
-  </div>`;
-
-  document.getElementById('pj-back-link').addEventListener('click', (e) => {
+  document.getElementById('btn-add-perjalanan').addEventListener('click', () => openAddPerjalanan(ruteId, key));
+  document.getElementById('pj-legacy-link').addEventListener('click', (e) => {
     e.preventDefault();
-    if (navDepth > 0) { history.back(); return; }
-    currentPerjalananId = null;
-    renderPerjalananList(ruteId);
+    navigate(LEGACY_PAGE_FOR_KEY[key], ruteId);
   });
 }
 
@@ -1196,6 +1138,9 @@ function openPerjalananCategory(ruteId, perjalananId, key, opts = {}) {
   const rute = store.ruteList.find(x => x.id === ruteId);
   const pj = store.perjalananList.find(x => x.id === perjalananId);
   const cfg = listConfig[key];
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === PJ_PAGE_FOR_KEY[key] && el.dataset.rute === ruteId);
+  });
   document.getElementById('topbar-title').textContent =
     `${cfg.title} - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
   renderPerjalananCategoryPage(ruteId, perjalananId, key);
@@ -1207,7 +1152,7 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
   const rute = store.ruteList.find(x => x.id === ruteId);
   const pj = store.perjalananList.find(x => x.id === perjalananId);
   const cfg = listConfig[key];
-  if (!pj || !cfg) { renderPerjalananList(ruteId); return; }
+  if (!pj || !cfg) { renderCategoryTripList(ruteId, key); return; }
 
   const rows = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId);
 
@@ -1216,7 +1161,7 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
     <div class="print-header" id="print-header-pj-${key}"></div>
     <div class="page-header" style="align-items:center;">
       <div class="no-print">
-        <a href="#" id="pj-cat-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Menu Perjalanan</a>
+        <a href="#" id="pj-cat-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Daftar Perjalanan</a>
         <div class="page-title" style="margin-top:6px;">${cfg.icon} ${cfg.title}</div>
         <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
       </div>
@@ -1246,7 +1191,8 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
   document.getElementById('pj-cat-back-link').addEventListener('click', (e) => {
     e.preventDefault();
     if (navDepth > 0) { history.back(); return; }
-    openPerjalananMenu(ruteId, perjalananId);
+    currentPerjalananId = null;
+    navigate(PJ_PAGE_FOR_KEY[key], ruteId);
   });
   document.getElementById(`btn-add-pj-${key}`).addEventListener('click', () => openAddModal(key));
   document.getElementById(`btn-print-pj-${key}`).addEventListener('click', () => {
