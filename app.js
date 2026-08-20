@@ -70,7 +70,7 @@ function toggleLunas(key, id) {
 /* ========================
    LOCAL STORAGE STORE
    ======================== */
-const STORE_KEY = 'toko_panglima_v4';
+const STORE_KEY = 'toko_panglima_v5';
 
 function loadStore() {
   let s = null;
@@ -169,33 +169,33 @@ function seedData() {
   ];
   store.barangTerjual = [
     // BENGKULU
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Meter Hitam 5M', jumlah: 20, satuan: 'Pcs', hargaJual: 32000 },
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Cat Samurai Campur Warna', jumlah: 4, satuan: 'Lusin', hargaJual: 550000 },
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-2', tanggal: '2026-06-14', pelanggan: 'Citra',          nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tang Kombinasi 7', jumlah: 12, satuan: 'Pcs', hargaJual: 38000 },
-    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tiner Cobra Merah', jumlah: 10, satuan: 'Kaleng', hargaJual: 25000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', noFaktur: '0801', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Meter Hitam 5M', jumlah: 20, satuan: 'Pcs', hargaJual: 32000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', noFaktur: '0801', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Cat Samurai Campur Warna', jumlah: 4, satuan: 'Lusin', hargaJual: 550000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-2', noFaktur: '0802', tanggal: '2026-06-14', pelanggan: 'Citra',          nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', noFaktur: '0803', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', noFaktur: '0803', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', noFaktur: '0804', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tang Kombinasi 7', jumlah: 12, satuan: 'Pcs', hargaJual: 38000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', noFaktur: '0804', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tiner Cobra Merah', jumlah: 10, satuan: 'Kaleng', hargaJual: 25000 },
     // JAMBI
-    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-1', tanggal: '2026-05-14', pelanggan: 'Berkat Jaya',       nama: 'Gergaji Kayu Kapusi', jumlah: 10, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-2', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Meter Hitam 7.5M', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-2', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Kawat Hijau', jumlah: 10, satuan: 'Rol', hargaJual: 70000 },
-    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-3', tanggal: '2026-07-17', pelanggan: 'Toko Melati Jambi', nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
-    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-4', tanggal: '2026-08-18', pelanggan: 'Sumber Rejeki',     nama: 'Cat Samurai Campur Warna', jumlah: 5, satuan: 'Lusin', hargaJual: 550000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-1', noFaktur: '0805', tanggal: '2026-05-14', pelanggan: 'Berkat Jaya',       nama: 'Gergaji Kayu Kapusi', jumlah: 10, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-2', noFaktur: '0806', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Meter Hitam 7.5M', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-2', noFaktur: '0806', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Kawat Hijau', jumlah: 10, satuan: 'Rol', hargaJual: 70000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-3', noFaktur: '0807', tanggal: '2026-07-17', pelanggan: 'Toko Melati Jambi', nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-4', noFaktur: '0808', tanggal: '2026-08-18', pelanggan: 'Sumber Rejeki',     nama: 'Cat Samurai Campur Warna', jumlah: 5, satuan: 'Lusin', hargaJual: 550000 },
     // RIAU
-    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-1', tanggal: '2026-05-15', pelanggan: 'Riau Makmur',        nama: 'Pompa Amper Kodai', jumlah: 3, satuan: 'Buah', hargaJual: 48000 },
-    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-2', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Mesin Gerinda 710W', jumlah: 1, satuan: 'Pcs', hargaJual: 350000 },
-    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-2', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Meter Hitam 5M', jumlah: 15, satuan: 'Pcs', hargaJual: 32000 },
-    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-3', tanggal: '2026-07-18', pelanggan: 'Usaha Baru',         nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
-    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-4', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Tang Kombinasi 7', jumlah: 8, satuan: 'Pcs', hargaJual: 38000 },
-    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-4', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Paku Seng MMK Jeruk', jumlah: 3, satuan: 'Dus', hargaJual: 95000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-1', noFaktur: '0809', tanggal: '2026-05-15', pelanggan: 'Riau Makmur',        nama: 'Pompa Amper Kodai', jumlah: 3, satuan: 'Buah', hargaJual: 48000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-2', noFaktur: '0810', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Mesin Gerinda 710W', jumlah: 1, satuan: 'Pcs', hargaJual: 350000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-2', noFaktur: '0810', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Meter Hitam 5M', jumlah: 15, satuan: 'Pcs', hargaJual: 32000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-3', noFaktur: '0811', tanggal: '2026-07-18', pelanggan: 'Usaha Baru',         nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-4', noFaktur: '0812', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Tang Kombinasi 7', jumlah: 8, satuan: 'Pcs', hargaJual: 38000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-4', noFaktur: '0812', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Paku Seng MMK Jeruk', jumlah: 3, satuan: 'Dus', hargaJual: 95000 },
     // MEDAN
-    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-1', tanggal: '2026-05-16', pelanggan: 'Toko Barokah',      nama: 'Sarung Tangan Bintik', jumlah: 8, satuan: 'Lusin', hargaJual: 35000 },
-    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-2', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Gergaji Kayu Kapusi', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-2', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Tiner Cobra Merah', jumlah: 8, satuan: 'Kaleng', hargaJual: 25000 },
-    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-3', tanggal: '2026-07-19', pelanggan: 'Mitra Utama',       nama: 'Meter Hitam 7.5M', jumlah: 6, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Pompa Amper Kodai', jumlah: 4, satuan: 'Buah', hargaJual: 48000 },
-    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-1', noFaktur: '0813', tanggal: '2026-05-16', pelanggan: 'Toko Barokah',      nama: 'Sarung Tangan Bintik', jumlah: 8, satuan: 'Lusin', hargaJual: 35000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-2', noFaktur: '0814', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Gergaji Kayu Kapusi', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-2', noFaktur: '0814', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Tiner Cobra Merah', jumlah: 8, satuan: 'Kaleng', hargaJual: 25000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-3', noFaktur: '0815', tanggal: '2026-07-19', pelanggan: 'Mitra Utama',       nama: 'Meter Hitam 7.5M', jumlah: 6, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', noFaktur: '0816', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Pompa Amper Kodai', jumlah: 4, satuan: 'Buah', hargaJual: 48000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', noFaktur: '0816', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
   ];
   store.perjalananList = [
     { id: 'pj-bengkulu-1', ruteId: 'rute-bengkulu', tanggalMulai: '2026-05-13', tanggalSelesai: '2026-05-18' },
@@ -871,18 +871,16 @@ const listConfig = {
     subtitle: 'Pencatatan penjualan rute luar kota',
     icon: '🚛',
     addLabel: '+ Tambah Barang Terjual',
-    columns: ['No','Nama Toko / Tanggal','Nama Barang','Jumlah','Satuan','Harga Jual','Total','Aksi'],
+    columns: ['No','Nama Toko','No PM','Tanggal','Nama Barang','Qty','Harga','Jumlah','Aksi'],
     grouped: true,
-    groupKeyFn: b => `${b.pelanggan}__${b.tanggal}`,
-    groupHeaderFn: (group) => `<td class="supplier-cell" rowspan="__ROWSPAN__">
-      <div class="supplier-cell-inner">
-        <div class="supplier-name">${group.rows[0].pelanggan}</div>
-        <div class="supplier-date">${formatDate(group.rows[0].tanggal)}</div>
-      </div></td>`,
+    groupKeyFn: b => `${b.pelanggan}__${b.noFaktur || ''}__${b.tanggal}`,
+    groupHeaderFn: (group) => `
+      <td class="supplier-cell" rowspan="__ROWSPAN__"><div class="supplier-name">${group.rows[0].pelanggan}</div></td>
+      <td rowspan="__ROWSPAN__">${group.rows[0].noFaktur || '-'}</td>
+      <td rowspan="__ROWSPAN__">${formatDate(group.rows[0].tanggal)}</td>`,
     itemCellsFn: b => `
       <td class="primary">${b.nama}</td>
-      <td>${fmtNum(b.jumlah)}</td>
-      <td><span class="badge badge-orange">${b.satuan}</span></td>
+      <td>${fmtNum(b.jumlah)} ${b.satuan}</td>
       <td>${fmt(b.hargaJual)}</td>
       <td class="amount-positive">${fmt(b.jumlah * b.hargaJual)}</td>`,
     subtotalFn: rows => rows.reduce((s,b) => s + b.jumlah * b.hargaJual, 0),
@@ -1113,33 +1111,7 @@ function renderPerjalananList(ruteId) {
   });
 }
 
-const PERJALANAN_SECTIONS = [
-  {
-    key: 'barangTerjual', icon: '🚛', title: 'Barang Terjual',
-    columns: ['Tanggal', 'Pelanggan', 'Nama Barang', 'Jumlah', 'Harga Jual', 'Total'],
-    rowFn: b => `<td>${formatDate(b.tanggal)}</td><td class="primary">${b.pelanggan}</td><td>${b.nama}</td><td>${fmtNum(b.jumlah)} ${b.satuan}</td><td>${fmt(b.hargaJual)}</td><td class="amount-positive">${fmt(b.jumlah * b.hargaJual)}</td>`,
-  },
-  {
-    key: 'rekapPiutang', icon: '📑', title: 'Rekap Piutang',
-    columns: ['Tanggal', 'Nama Toko', 'No Faktur', 'Jumlah', 'Status'],
-    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.nama}</td><td>${x.noFaktur || '-'}</td><td class="amount-positive">${fmt(x.jumlah)}</td>${statusBadgeCell('rekapPiutang', x)}`,
-  },
-  {
-    key: 'tagihan', icon: '🧾', title: 'Tagihan',
-    columns: ['Tanggal', 'Nama', 'Keterangan', 'Jumlah'],
-    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.nama}</td><td>${x.keterangan}</td><td>${fmt(x.jumlah)}</td>`,
-  },
-  {
-    key: 'uangKeluarLK', icon: '💸', title: 'Uang Keluar',
-    columns: ['Tanggal', 'Keterangan', 'Jumlah'],
-    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-negative">-${fmt(x.jumlah)}</td>`,
-  },
-  {
-    key: 'uangMasuk', icon: '💰', title: 'Uang Masuk',
-    columns: ['Tanggal', 'Keterangan', 'Jumlah'],
-    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-positive">${fmt(x.jumlah)}</td>`,
-  },
-];
+const PERJALANAN_KEYS = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluarLK', 'uangMasuk'];
 
 function openPerjalananMenu(ruteId, perjalananId, opts = {}) {
   currentPage = 'perjalanan-list';
@@ -1171,14 +1143,15 @@ function renderPerjalananMenu(ruteId, perjalananId) {
     .reduce((s, x) => s + Number(x.jumlah || 0), 0);
   const hasil = penjualan + masuk - keluar;
 
-  const cardsHtml = PERJALANAN_SECTIONS.map(sec => {
-    const count = store[sec.key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId).length;
+  const cardsHtml = PERJALANAN_KEYS.map(key => {
+    const cfg = listConfig[key];
+    const count = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId).length;
     return `
-      <div class="card" style="cursor:pointer;" onclick="openPerjalananCategory('${ruteId}','${perjalananId}','${sec.key}')">
+      <div class="card" style="cursor:pointer;" onclick="openPerjalananCategory('${ruteId}','${perjalananId}','${key}')">
         <div style="padding:24px; display:flex; align-items:center; gap:16px;">
-          <div style="font-size:32px;">${sec.icon}</div>
+          <div style="font-size:32px;">${cfg.icon}</div>
           <div style="flex:1;">
-            <div style="font-weight:700; font-size:15px; color:var(--text-primary);">${sec.title}</div>
+            <div style="font-weight:700; font-size:15px; color:var(--text-primary);">${cfg.title}</div>
             <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">${count} data tercatat</div>
           </div>
           <div style="color:var(--text-muted);">›</div>
@@ -1222,9 +1195,9 @@ function openPerjalananCategory(ruteId, perjalananId, key, opts = {}) {
   currentPerjalananId = perjalananId;
   const rute = store.ruteList.find(x => x.id === ruteId);
   const pj = store.perjalananList.find(x => x.id === perjalananId);
-  const sec = PERJALANAN_SECTIONS.find(s => s.key === key);
+  const cfg = listConfig[key];
   document.getElementById('topbar-title').textContent =
-    `${sec.title} - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
+    `${cfg.title} - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
   renderPerjalananCategoryPage(ruteId, perjalananId, key);
   pushNavState({ type: 'pjCategory', ruteId, perjalananId, key }, opts);
 }
@@ -1233,8 +1206,8 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
   const content = document.getElementById('content');
   const rute = store.ruteList.find(x => x.id === ruteId);
   const pj = store.perjalananList.find(x => x.id === perjalananId);
-  const sec = PERJALANAN_SECTIONS.find(s => s.key === key);
-  if (!pj || !sec) { renderPerjalananList(ruteId); return; }
+  const cfg = listConfig[key];
+  if (!pj || !cfg) { renderPerjalananList(ruteId); return; }
 
   const rows = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId);
 
@@ -1244,39 +1217,31 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
     <div class="page-header" style="align-items:center;">
       <div class="no-print">
         <a href="#" id="pj-cat-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Menu Perjalanan</a>
-        <div class="page-title" style="margin-top:6px;">${sec.icon} ${sec.title}</div>
+        <div class="page-title" style="margin-top:6px;">${cfg.icon} ${cfg.title}</div>
         <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
       </div>
       <div class="no-print" style="display:flex; gap:10px;">
         <button class="btn btn-ghost" id="btn-print-pj-${key}">🖨️ Cetak</button>
-        <button class="btn btn-primary" id="btn-add-pj-${key}">+ Tambah</button>
+        <button class="btn btn-primary" id="btn-add-pj-${key}">${cfg.addLabel}</button>
       </div>
     </div>
 
     <div class="card">
       <div class="table-wrap">
         <table>
-          <thead><tr>${sec.columns.map(c => `<th>${c}</th>`).join('')}<th>Aksi</th></tr></thead>
-          <tbody>
-            ${rows.length ? rows.map(r => `
-              <tr>
-                ${sec.rowFn(r)}
-                <td>
-                  <div class="actions">
-                    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${r.id}')">✏️</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${r.id}')">🗑️</button>
-                  </div>
-                </td>
-              </tr>`).join('') : `<tr><td colspan="${sec.columns.length + 1}" style="padding:40px;text-align:center;color:var(--text-muted)">
-                <div class="empty-state-icon">📭</div>
-                <div class="empty-state-title">Belum ada data</div>
-                <div class="empty-state-sub">Klik "+ Tambah" untuk mencatat ${sec.title.toLowerCase()} perjalanan ini</div>
-              </td></tr>`}
-          </tbody>
+          <thead><tr>${cfg.columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>
+          <tbody id="pj-tbody-${key}"></tbody>
         </table>
       </div>
     </div>
   </div>`;
+
+  const tbody = document.getElementById(`pj-tbody-${key}`);
+  if (!rows.length) {
+    renderEmptyTbody(tbody, cfg.columns.length, `Klik "+ Tambah" untuk mencatat ${cfg.title.toLowerCase()} perjalanan ini`);
+  } else {
+    renderRowsIntoTbody(key, rows, tbody);
+  }
 
   document.getElementById('pj-cat-back-link').addEventListener('click', (e) => {
     e.preventDefault();
@@ -1288,7 +1253,7 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
     const el = document.getElementById(`print-header-pj-${key}`);
     if (el) {
       el.innerHTML = `
-        <div class="print-title">Toko Panglima Bangunan — ${sec.title.toUpperCase()}</div>
+        <div class="print-title">Toko Panglima Bangunan — ${cfg.title.toUpperCase()}</div>
         <div class="print-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
         <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
     }
@@ -1404,14 +1369,23 @@ function renderTableBody(key, query = '') {
     let sub = 'Klik tombol tambah untuk mulai mencatat';
     if (query) sub = 'Coba kata kunci lain';
     else if (filterActive) sub = 'Tidak ada data pada periode yang dipilih — coba ubah filter tanggal';
-    tbody.innerHTML = `<tr><td colspan="${cfg.columns.length}" style="padding:40px;text-align:center;color:var(--text-muted)">
-      <div class="empty-state-icon">📭</div>
-      <div class="empty-state-title">Tidak ada data</div>
-      <div class="empty-state-sub">${sub}</div>
-    </td></tr>`;
+    renderEmptyTbody(tbody, cfg.columns.length, sub);
     return;
   }
 
+  renderRowsIntoTbody(key, filtered, tbody);
+}
+
+function renderEmptyTbody(tbody, colspan, sub) {
+  tbody.innerHTML = `<tr><td colspan="${colspan}" style="padding:40px;text-align:center;color:var(--text-muted)">
+    <div class="empty-state-icon">📭</div>
+    <div class="empty-state-title">Tidak ada data</div>
+    <div class="empty-state-sub">${sub}</div>
+  </td></tr>`;
+}
+
+function renderRowsIntoTbody(key, filtered, tbody) {
+  const cfg = listConfig[key];
   const items = filtered.slice().reverse();
 
   if (cfg.grouped) {
@@ -1452,11 +1426,12 @@ function renderGroupedBody(key, items, tbody, cfg) {
     const sepStyle = gi > 0 ? 'border-top: 2px solid var(--border-light);' : '';
 
     // build header cell with correct rowspan
-    const headerCell = cfg.groupHeaderFn(group, gi).replace('__ROWSPAN__', rowCount);
+    const headerCell = cfg.groupHeaderFn(group, gi).replace(/__ROWSPAN__/g, rowCount);
 
     group.rows.forEach((item, ri) => {
       const isFirst = ri === 0;
-      html += `<tr${isFirst && gi > 0 ? ` style="${sepStyle}"` : ''}>`;
+      const bandClass = `group-band-${gi % 2}`;
+      html += `<tr class="${bandClass}"${isFirst && gi > 0 ? ` style="${sepStyle}"` : ''}>`;
       if (isFirst) {
         // NO cell
         html += `<td class="group-no-cell" rowspan="${rowCount}">${gi + 1}</td>`;
@@ -1478,7 +1453,7 @@ function renderGroupedBody(key, items, tbody, cfg) {
     if (cfg.subtotalFn) {
       const total = cfg.subtotalFn(group.rows);
       const skip  = cfg.subtotalCols || 2;
-      html += `<tr class="subtotal-row">
+      html += `<tr class="subtotal-row group-band-${gi % 2}">
         <td colspan="${skip + 2}" class="subtotal-label">Total</td>
         <td class="subtotal-val">${fmt(total)}</td>
         <td></td>
@@ -1778,6 +1753,10 @@ function formBarangTerjual(data = {}) {
         <input type="text" class="form-input" name="pelanggan" value="${data.pelanggan || ''}" placeholder="Nama pelanggan" required />
       </div>
       <div class="form-group form-full">
+        <label class="form-label">No PM / Faktur</label>
+        <input type="text" class="form-input" name="noFaktur" value="${data.noFaktur || ''}" placeholder="Misal: 0829" />
+      </div>
+      <div class="form-group form-full">
         <label class="form-label">Nama Barang (Dari Stok)</label>
         <select class="form-select" name="nama" onchange="handleStockSelection(this)" required>
           ${stockDropdownOptions(data.nama)}
@@ -1944,6 +1923,10 @@ function buildMultiBarangTerjualForm() {
         <label class="form-label">Nama Toko / Pelanggan</label>
         <input type="text" class="form-input" id="bt-pelanggan" placeholder="Contoh: Sinar Timbulun" required />
       </div>
+      <div class="form-group form-full">
+        <label class="form-label">No PM / Faktur</label>
+        <input type="text" class="form-input" id="bt-nofaktur" placeholder="Misal: 0829" />
+      </div>
     </div>
   </div>
 
@@ -2071,6 +2054,7 @@ function openMultiBarangTerjualModal() {
   document.getElementById('bt-simpan').addEventListener('click', () => {
     const tanggal   = document.getElementById('bt-tanggal').value.trim();
     const pelanggan = document.getElementById('bt-pelanggan').value.trim();
+    const noFaktur  = document.getElementById('bt-nofaktur').value.trim();
     if (!tanggal)   { showToast('Tanggal wajib diisi!', 'error'); return; }
     if (!pelanggan) { showToast('Nama toko/pelanggan wajib diisi!', 'error'); return; }
 
@@ -2091,7 +2075,7 @@ function openMultiBarangTerjualModal() {
       tr.style.outline = '';
       const ruteId = currentRuteId;
       const perjalananId = currentPerjalananId;
-      items.push({ id: uid(), ruteId, perjalananId, tanggal, pelanggan, nama, jumlah, satuan, hargaJual });
+      items.push({ id: uid(), ruteId, perjalananId, tanggal, pelanggan, noFaktur, nama, jumlah, satuan, hargaJual });
     });
 
     if (hasError) { showToast('Lengkapi semua baris terlebih dahulu!', 'error'); return; }

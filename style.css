@@ -1014,8 +1014,10 @@ tbody tr:hover { background: var(--bg-card-hover); }
   font-weight: 500;
 }
 
-/* faint stripe on alternating groups (optional but nice) */
-tbody tr.group-first-row td { background: rgba(255,255,255,.02); }
+/* alternating background band per group, like a printed ledger */
+tbody tr.group-band-1 td { background: rgba(251,191,36,.05); }
+tbody tr.group-band-1.subtotal-row td,
+tbody tr.group-band-1:hover td { background: rgba(251,191,36,.09); }
 
 /* ========================
    GROUP NO CELL
@@ -1144,6 +1146,8 @@ tbody tr.group-first-row td { background: rgba(255,255,255,.02); }
   .card { border: 1px solid var(--border); box-shadow: none; break-inside: avoid; }
   table th:last-child, table td:last-child { display: none; }
   .badge { border: 1px solid currentColor; }
+  tbody tr.group-band-1 td { background: #fdf6e3 !important; }
+  tbody tr.group-band-0 td { background: #ffffff !important; }
 
   .print-header { display: block !important; margin-bottom: 16px; }
   .print-header .print-title { font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
