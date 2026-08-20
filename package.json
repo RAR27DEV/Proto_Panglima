@@ -1,0 +1,9 @@
+{
+  "name": "toko-panglima",
+  "version": "1.0.0",
+  "description": "Sistem Pencatatan Keuangan Toko Panglima Bangunan",
+  "scripts": {
+    "dev": "npx live-server --port=3000 --host=localhost --open=index.html --no-browser"
+  },
+  "dependencies": {}
+}
