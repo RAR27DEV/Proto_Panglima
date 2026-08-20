@@ -58,15 +58,19 @@ function toggleLunas(key, id) {
   if (!item) return;
   item.status = item.status === 'Lunas' ? 'Belum Lunas' : 'Lunas';
   saveStore();
-  const searchInput = document.getElementById(`search-${key}`);
-  renderTableBody(key, searchInput ? searchInput.value.toLowerCase().trim() : '');
+  if (currentPerjalananId && currentRuteId) {
+    renderPerjalananDetail(currentRuteId, currentPerjalananId);
+  } else {
+    const searchInput = document.getElementById(`search-${key}`);
+    renderTableBody(key, searchInput ? searchInput.value.toLowerCase().trim() : '');
+  }
   showToast(`Status ditandai ${item.status}`, 'success');
 }
 
 /* ========================
    LOCAL STORAGE STORE
    ======================== */
-const STORE_KEY = 'toko_panglima_v3';
+const STORE_KEY = 'toko_panglima_v4';
 
 function loadStore() {
   let s = null;
@@ -103,6 +107,7 @@ function defaultStore() {
     utang:         [],
     piutang:       [],
     uangKeluar:    [],
+    perjalananList:[],
     barangTerjual: [],
     rekapPiutang:  [],
     tagihan:       [],
@@ -164,33 +169,51 @@ function seedData() {
   ];
   store.barangTerjual = [
     // BENGKULU
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Meter Hitam 5M', jumlah: 20, satuan: 'Pcs', hargaJual: 32000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Cat Samurai Campur Warna', jumlah: 4, satuan: 'Lusin', hargaJual: 550000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-06-14', pelanggan: 'Citra',          nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tang Kombinasi 7', jumlah: 12, satuan: 'Pcs', hargaJual: 38000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tiner Cobra Merah', jumlah: 10, satuan: 'Kaleng', hargaJual: 25000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Meter Hitam 5M', jumlah: 20, satuan: 'Pcs', hargaJual: 32000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-13', pelanggan: 'Sutra Jaya',     nama: 'Cat Samurai Campur Warna', jumlah: 4, satuan: 'Lusin', hargaJual: 550000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-2', tanggal: '2026-06-14', pelanggan: 'Citra',          nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', tanggal: '2026-07-15', pelanggan: 'Amanah',         nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tang Kombinasi 7', jumlah: 12, satuan: 'Pcs', hargaJual: 38000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', tanggal: '2026-08-16', pelanggan: 'Alvin Brother',  nama: 'Tiner Cobra Merah', jumlah: 10, satuan: 'Kaleng', hargaJual: 25000 },
     // JAMBI
-    { id: uid(), ruteId: 'rute-jambi', tanggal: '2026-05-14', pelanggan: 'Berkat Jaya',       nama: 'Gergaji Kayu Kapusi', jumlah: 10, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-jambi', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Meter Hitam 7.5M', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-jambi', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Kawat Hijau', jumlah: 10, satuan: 'Rol', hargaJual: 70000 },
-    { id: uid(), ruteId: 'rute-jambi', tanggal: '2026-07-17', pelanggan: 'Toko Melati Jambi', nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
-    { id: uid(), ruteId: 'rute-jambi', tanggal: '2026-08-18', pelanggan: 'Sumber Rejeki',     nama: 'Cat Samurai Campur Warna', jumlah: 5, satuan: 'Lusin', hargaJual: 550000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-1', tanggal: '2026-05-14', pelanggan: 'Berkat Jaya',       nama: 'Gergaji Kayu Kapusi', jumlah: 10, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-2', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Meter Hitam 7.5M', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-2', tanggal: '2026-06-16', pelanggan: 'Cahaya Abadi',      nama: 'Kawat Hijau', jumlah: 10, satuan: 'Rol', hargaJual: 70000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-3', tanggal: '2026-07-17', pelanggan: 'Toko Melati Jambi', nama: 'Sarung Tangan Bintik', jumlah: 10, satuan: 'Lusin', hargaJual: 35000 },
+    { id: uid(), ruteId: 'rute-jambi', perjalananId: 'pj-jambi-4', tanggal: '2026-08-18', pelanggan: 'Sumber Rejeki',     nama: 'Cat Samurai Campur Warna', jumlah: 5, satuan: 'Lusin', hargaJual: 550000 },
     // RIAU
-    { id: uid(), ruteId: 'rute-riau', tanggal: '2026-05-15', pelanggan: 'Riau Makmur',        nama: 'Pompa Amper Kodai', jumlah: 3, satuan: 'Buah', hargaJual: 48000 },
-    { id: uid(), ruteId: 'rute-riau', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Mesin Gerinda 710W', jumlah: 1, satuan: 'Pcs', hargaJual: 350000 },
-    { id: uid(), ruteId: 'rute-riau', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Meter Hitam 5M', jumlah: 15, satuan: 'Pcs', hargaJual: 32000 },
-    { id: uid(), ruteId: 'rute-riau', tanggal: '2026-07-18', pelanggan: 'Usaha Baru',         nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
-    { id: uid(), ruteId: 'rute-riau', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Tang Kombinasi 7', jumlah: 8, satuan: 'Pcs', hargaJual: 38000 },
-    { id: uid(), ruteId: 'rute-riau', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Paku Seng MMK Jeruk', jumlah: 3, satuan: 'Dus', hargaJual: 95000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-1', tanggal: '2026-05-15', pelanggan: 'Riau Makmur',        nama: 'Pompa Amper Kodai', jumlah: 3, satuan: 'Buah', hargaJual: 48000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-2', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Mesin Gerinda 710W', jumlah: 1, satuan: 'Pcs', hargaJual: 350000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-2', tanggal: '2026-06-17', pelanggan: 'Sinar Pratama',      nama: 'Meter Hitam 5M', jumlah: 15, satuan: 'Pcs', hargaJual: 32000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-3', tanggal: '2026-07-18', pelanggan: 'Usaha Baru',         nama: 'Kawat Hijau', jumlah: 15, satuan: 'Rol', hargaJual: 70000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-4', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Tang Kombinasi 7', jumlah: 8, satuan: 'Pcs', hargaJual: 38000 },
+    { id: uid(), ruteId: 'rute-riau', perjalananId: 'pj-riau-4', tanggal: '2026-08-19', pelanggan: 'Karya Mandiri',      nama: 'Paku Seng MMK Jeruk', jumlah: 3, satuan: 'Dus', hargaJual: 95000 },
     // MEDAN
-    { id: uid(), ruteId: 'rute-medan', tanggal: '2026-05-16', pelanggan: 'Toko Barokah',      nama: 'Sarung Tangan Bintik', jumlah: 8, satuan: 'Lusin', hargaJual: 35000 },
-    { id: uid(), ruteId: 'rute-medan', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Gergaji Kayu Kapusi', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-medan', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Tiner Cobra Merah', jumlah: 8, satuan: 'Kaleng', hargaJual: 25000 },
-    { id: uid(), ruteId: 'rute-medan', tanggal: '2026-07-19', pelanggan: 'Mitra Utama',       nama: 'Meter Hitam 7.5M', jumlah: 6, satuan: 'Pcs', hargaJual: 40000 },
-    { id: uid(), ruteId: 'rute-medan', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Pompa Amper Kodai', jumlah: 4, satuan: 'Buah', hargaJual: 48000 },
-    { id: uid(), ruteId: 'rute-medan', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-1', tanggal: '2026-05-16', pelanggan: 'Toko Barokah',      nama: 'Sarung Tangan Bintik', jumlah: 8, satuan: 'Lusin', hargaJual: 35000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-2', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Gergaji Kayu Kapusi', jumlah: 8, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-2', tanggal: '2026-06-19', pelanggan: 'Medan Sentosa',     nama: 'Tiner Cobra Merah', jumlah: 8, satuan: 'Kaleng', hargaJual: 25000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-3', tanggal: '2026-07-19', pelanggan: 'Mitra Utama',       nama: 'Meter Hitam 7.5M', jumlah: 6, satuan: 'Pcs', hargaJual: 40000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Pompa Amper Kodai', jumlah: 4, satuan: 'Buah', hargaJual: 48000 },
+    { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
+  ];
+  store.perjalananList = [
+    { id: 'pj-bengkulu-1', ruteId: 'rute-bengkulu', tanggalMulai: '2026-05-13', tanggalSelesai: '2026-05-18' },
+    { id: 'pj-bengkulu-2', ruteId: 'rute-bengkulu', tanggalMulai: '2026-06-14', tanggalSelesai: '2026-06-24' },
+    { id: 'pj-bengkulu-3', ruteId: 'rute-bengkulu', tanggalMulai: '2026-07-15', tanggalSelesai: '2026-07-18' },
+    { id: 'pj-bengkulu-4', ruteId: 'rute-bengkulu', tanggalMulai: '2026-08-09', tanggalSelesai: '2026-08-19' },
+    { id: 'pj-jambi-1', ruteId: 'rute-jambi', tanggalMulai: '2026-05-14', tanggalSelesai: '2026-05-19' },
+    { id: 'pj-jambi-2', ruteId: 'rute-jambi', tanggalMulai: '2026-06-16', tanggalSelesai: '2026-06-19' },
+    { id: 'pj-jambi-3', ruteId: 'rute-jambi', tanggalMulai: '2026-07-17', tanggalSelesai: '2026-07-24' },
+    { id: 'pj-jambi-4', ruteId: 'rute-jambi', tanggalMulai: '2026-08-10', tanggalSelesai: '2026-08-20' },
+    { id: 'pj-riau-1', ruteId: 'rute-riau', tanggalMulai: '2026-05-15', tanggalSelesai: '2026-05-22' },
+    { id: 'pj-riau-2', ruteId: 'rute-riau', tanggalMulai: '2026-06-17', tanggalSelesai: '2026-06-20' },
+    { id: 'pj-riau-3', ruteId: 'rute-riau', tanggalMulai: '2026-07-18', tanggalSelesai: '2026-07-26' },
+    { id: 'pj-riau-4', ruteId: 'rute-riau', tanggalMulai: '2026-08-19', tanggalSelesai: '2026-08-20' },
+    { id: 'pj-medan-1', ruteId: 'rute-medan', tanggalMulai: '2026-05-16', tanggalSelesai: '2026-05-21' },
+    { id: 'pj-medan-2', ruteId: 'rute-medan', tanggalMulai: '2026-06-19', tanggalSelesai: '2026-06-25' },
+    { id: 'pj-medan-3', ruteId: 'rute-medan', tanggalMulai: '2026-07-19', tanggalSelesai: '2026-07-21' },
+    { id: 'pj-medan-4', ruteId: 'rute-medan', tanggalMulai: '2026-08-11', tanggalSelesai: '2026-08-20' },
   ];
   store.rekapPiutang = [
     // BENGKULU (data asli "Rekap Piutang Pesisir Bengkulu")
@@ -244,32 +267,32 @@ function seedData() {
     { id: uid(), ruteId: 'rute-medan', tanggal: '2026-04-10', nama: 'Medan Sentosa', keterangan: 'Tagihan pengiriman', jumlah: 340000 },
   ];
   store.uangKeluarLK = [
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-05-18', keterangan: 'Biaya BBM pengiriman', jumlah: 150000 },
-    { id: uid(), ruteId: 'rute-jambi',    tanggal: '2026-05-19', keterangan: 'Biaya BBM pengiriman', jumlah: 180000 },
-    { id: uid(), ruteId: 'rute-riau',     tanggal: '2026-05-20', keterangan: 'Biaya BBM pengiriman', jumlah: 200000 },
-    { id: uid(), ruteId: 'rute-medan',    tanggal: '2026-05-21', keterangan: 'Biaya BBM pengiriman', jumlah: 220000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-06-18', keterangan: 'Biaya BBM pengiriman', jumlah: 120000 },
-    { id: uid(), ruteId: 'rute-jambi',    tanggal: '2026-06-19', keterangan: 'Biaya BBM pengiriman', jumlah: 160000 },
-    { id: uid(), ruteId: 'rute-riau',     tanggal: '2026-06-20', keterangan: 'Biaya BBM pengiriman', jumlah: 190000 },
-    { id: uid(), ruteId: 'rute-medan',    tanggal: '2026-06-21', keterangan: 'Biaya BBM pengiriman', jumlah: 210000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-07-18', keterangan: 'Biaya BBM pengiriman', jumlah: 130000 },
-    { id: uid(), ruteId: 'rute-jambi',    tanggal: '2026-07-19', keterangan: 'Biaya BBM pengiriman', jumlah: 150000 },
-    { id: uid(), ruteId: 'rute-riau',     tanggal: '2026-07-20', keterangan: 'Biaya BBM pengiriman', jumlah: 180000 },
-    { id: uid(), ruteId: 'rute-medan',    tanggal: '2026-07-21', keterangan: 'Biaya BBM pengiriman', jumlah: 200000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-08-19', keterangan: 'Biaya BBM pengiriman', jumlah: 140000 },
-    { id: uid(), ruteId: 'rute-jambi',    tanggal: '2026-08-20', keterangan: 'Biaya BBM pengiriman', jumlah: 170000 },
-    { id: uid(), ruteId: 'rute-riau',     tanggal: '2026-08-20', keterangan: 'Biaya BBM pengiriman', jumlah: 210000 },
-    { id: uid(), ruteId: 'rute-medan',    tanggal: '2026-08-20', keterangan: 'Biaya BBM pengiriman', jumlah: 230000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-18', keterangan: 'Biaya BBM pengiriman', jumlah: 150000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-1',    tanggal: '2026-05-19', keterangan: 'Biaya BBM pengiriman', jumlah: 180000 },
+    { id: uid(), ruteId: 'rute-riau',     perjalananId: 'pj-riau-1',     tanggal: '2026-05-20', keterangan: 'Biaya BBM pengiriman', jumlah: 200000 },
+    { id: uid(), ruteId: 'rute-medan',    perjalananId: 'pj-medan-1',    tanggal: '2026-05-21', keterangan: 'Biaya BBM pengiriman', jumlah: 220000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-2', tanggal: '2026-06-18', keterangan: 'Biaya BBM pengiriman', jumlah: 120000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-2',    tanggal: '2026-06-19', keterangan: 'Biaya BBM pengiriman', jumlah: 160000 },
+    { id: uid(), ruteId: 'rute-riau',     perjalananId: 'pj-riau-2',     tanggal: '2026-06-20', keterangan: 'Biaya BBM pengiriman', jumlah: 190000 },
+    { id: uid(), ruteId: 'rute-medan',    perjalananId: 'pj-medan-2',    tanggal: '2026-06-21', keterangan: 'Biaya BBM pengiriman', jumlah: 210000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-3', tanggal: '2026-07-18', keterangan: 'Biaya BBM pengiriman', jumlah: 130000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-3',    tanggal: '2026-07-19', keterangan: 'Biaya BBM pengiriman', jumlah: 150000 },
+    { id: uid(), ruteId: 'rute-riau',     perjalananId: 'pj-riau-3',     tanggal: '2026-07-20', keterangan: 'Biaya BBM pengiriman', jumlah: 180000 },
+    { id: uid(), ruteId: 'rute-medan',    perjalananId: 'pj-medan-3',    tanggal: '2026-07-21', keterangan: 'Biaya BBM pengiriman', jumlah: 200000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', tanggal: '2026-08-19', keterangan: 'Biaya BBM pengiriman', jumlah: 140000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-4',    tanggal: '2026-08-20', keterangan: 'Biaya BBM pengiriman', jumlah: 170000 },
+    { id: uid(), ruteId: 'rute-riau',     perjalananId: 'pj-riau-4',     tanggal: '2026-08-20', keterangan: 'Biaya BBM pengiriman', jumlah: 210000 },
+    { id: uid(), ruteId: 'rute-medan',    perjalananId: 'pj-medan-4',    tanggal: '2026-08-20', keterangan: 'Biaya BBM pengiriman', jumlah: 230000 },
   ];
   store.uangMasuk = [
-    { id: uid(), ruteId: 'rute-riau',     tanggal: '2026-05-22', keterangan: 'DP proyek Riau Makmur', jumlah: 500000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-06-24', keterangan: 'Pelunasan piutang & tagihan Saudara Jaya', jumlah: 1500000 },
-    { id: uid(), ruteId: 'rute-medan',    tanggal: '2026-06-25', keterangan: 'Pelunasan piutang Toko Barokah', jumlah: 1000000 },
-    { id: uid(), ruteId: 'rute-jambi',    tanggal: '2026-07-24', keterangan: 'Pelunasan piutang Berkat Jaya', jumlah: 1200000 },
-    { id: uid(), ruteId: 'rute-riau',     tanggal: '2026-07-26', keterangan: 'DP proyek Usaha Baru', jumlah: 1400000 },
-    { id: uid(), ruteId: 'rute-bengkulu', tanggal: '2026-08-09', keterangan: 'Pelunasan piutang Sumber (sebagian)', jumlah: 2500000 },
-    { id: uid(), ruteId: 'rute-jambi',    tanggal: '2026-08-10', keterangan: 'Pelunasan piutang Sumber Rejeki', jumlah: 1800000 },
-    { id: uid(), ruteId: 'rute-medan',    tanggal: '2026-08-11', keterangan: 'Pelunasan piutang Mitra Utama', jumlah: 1500000 },
+    { id: uid(), ruteId: 'rute-riau',     perjalananId: 'pj-riau-1',     tanggal: '2026-05-22', keterangan: 'DP proyek Riau Makmur', jumlah: 500000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-2', tanggal: '2026-06-24', keterangan: 'Pelunasan piutang & tagihan Saudara Jaya', jumlah: 1500000 },
+    { id: uid(), ruteId: 'rute-medan',    perjalananId: 'pj-medan-2',    tanggal: '2026-06-25', keterangan: 'Pelunasan piutang Toko Barokah', jumlah: 1000000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-3',    tanggal: '2026-07-24', keterangan: 'Pelunasan piutang Berkat Jaya', jumlah: 1200000 },
+    { id: uid(), ruteId: 'rute-riau',     perjalananId: 'pj-riau-3',     tanggal: '2026-07-26', keterangan: 'DP proyek Usaha Baru', jumlah: 1400000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-4', tanggal: '2026-08-09', keterangan: 'Pelunasan piutang Sumber (sebagian)', jumlah: 2500000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-4',    tanggal: '2026-08-10', keterangan: 'Pelunasan piutang Sumber Rejeki', jumlah: 1800000 },
+    { id: uid(), ruteId: 'rute-medan',    perjalananId: 'pj-medan-4',    tanggal: '2026-08-11', keterangan: 'Pelunasan piutang Mitra Utama', jumlah: 1500000 },
   ];
   saveStore();
 }
@@ -289,6 +312,7 @@ const pageMap = {
   'tagihan':         () => renderList('tagihan'),
   'uang-keluar-lk':  () => renderList('uangKeluarLK'),
   'uang-masuk':      () => renderList('uangMasuk'),
+  'perjalanan-list': () => renderPerjalananList(currentRuteId),
   'stok-toko':       renderStok,
   'laporan-keuangan':renderLaporan,
   'pengaturan-rute': () => renderList('ruteList'),
@@ -305,6 +329,7 @@ const pageTitles = {
   'tagihan':         'Tagihan (Rute)',
   'uang-keluar-lk':  'Uang Keluar (Rute)',
   'uang-masuk':      'Uang Masuk (Rute)',
+  'perjalanan-list': 'Daftar Perjalanan',
   'stok-toko':       'Stok Toko',
   'laporan-keuangan':'Laporan Keuangan',
   'pengaturan-rute': 'Manajemen Rute',
@@ -312,6 +337,7 @@ const pageTitles = {
 
 let currentPage = 'dashboard';
 let currentRuteId = null;
+let currentPerjalananId = null;
 
 /* ========================
    DATE FILTER (tabel-tabel pencatatan)
@@ -374,7 +400,8 @@ function refreshTableBody(key) {
 function navigate(page, ruteId = null) {
   currentPage = page;
   currentRuteId = ruteId;
-  
+  currentPerjalananId = null;
+
   document.querySelectorAll('.nav-item').forEach(el => {
     const matchPage = el.dataset.page === page;
     if (el.dataset.rute) {
@@ -413,20 +440,8 @@ function renderRuteSidebar() {
         <span class="chevron" id="chevron-rute-${rute.id}">▼</span>
       </div>
       <div class="submenu" id="submenu-rute-${rute.id}">
-        <a class="nav-item" data-page="barang-terjual" data-rute="${rute.id}">
-          <span class="nav-icon">🚛</span><span>Barang Terjual</span>
-        </a>
-        <a class="nav-item" data-page="rekap-piutang" data-rute="${rute.id}">
-          <span class="nav-icon">📑</span><span>Rekap Piutang</span>
-        </a>
-        <a class="nav-item" data-page="tagihan" data-rute="${rute.id}">
-          <span class="nav-icon">🧾</span><span>Tagihan</span>
-        </a>
-        <a class="nav-item" data-page="uang-keluar-lk" data-rute="${rute.id}">
-          <span class="nav-icon">💸</span><span>Uang Keluar</span>
-        </a>
-        <a class="nav-item" data-page="uang-masuk" data-rute="${rute.id}">
-          <span class="nav-icon">💰</span><span>Uang Masuk</span>
+        <a class="nav-item" data-page="perjalanan-list" data-rute="${rute.id}">
+          <span class="nav-icon">🚚</span><span>Daftar Perjalanan</span>
         </a>
       </div>
     `;
@@ -914,6 +929,266 @@ const listConfig = {
     searchFn: (x, q) => x.nama.toLowerCase().includes(q),
   }
 };
+
+/* ========================
+   PERJALANAN (per-trip grouping for rute data)
+   ======================== */
+function formPerjalanan(data = {}) {
+  return `<form id="modal-form">
+    <div class="form-group form-full">
+      <label class="form-label">Tanggal Mulai</label>
+      <input type="date" class="form-input" name="tanggalMulai" value="${data.tanggalMulai || today()}" required />
+    </div>
+    <div class="form-group form-full">
+      <label class="form-label">Tanggal Selesai</label>
+      <input type="date" class="form-input" name="tanggalSelesai" value="${data.tanggalSelesai || today()}" required />
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+    </div>
+  </form>`;
+}
+
+function openAddPerjalanan(ruteId) {
+  openModal('🚚 Tambah Perjalanan', formPerjalanan(), (form) => {
+    const fd = Object.fromEntries(new FormData(form));
+    fd.id = uid();
+    fd.ruteId = ruteId;
+    store.perjalananList.push(fd);
+    saveStore();
+    closeModal();
+    renderPerjalananList(ruteId);
+    showToast('Perjalanan berhasil ditambahkan!', 'success');
+  });
+}
+
+function openEditPerjalanan(id) {
+  const item = store.perjalananList.find(x => x.id === id);
+  if (!item) return;
+  openModal('✏️ Edit Perjalanan', formPerjalanan(item), (form) => {
+    const fd = Object.fromEntries(new FormData(form));
+    const idx = store.perjalananList.findIndex(x => x.id === id);
+    store.perjalananList[idx] = { ...item, ...fd };
+    saveStore();
+    closeModal();
+    renderPerjalananList(item.ruteId);
+    showToast('Perjalanan berhasil diperbarui!', 'success');
+  });
+}
+
+function deletePerjalanan(id, ruteId) {
+  const html = `
+    <div style="padding:10px 0 20px;text-align:center">
+      <p style="margin-bottom:8px;font-size:15px;color:var(--text-secondary)">Yakin ingin menghapus perjalanan ini?</p>
+      <p style="margin-bottom:20px;font-size:13px;color:var(--text-muted)">Data transaksi yang sudah tercatat di dalamnya tidak akan terhapus, tapi tidak akan muncul di perjalanan manapun.</p>
+      <div style="display:flex;justify-content:center;gap:12px">
+        <button type="button" class="btn btn-ghost" onclick="closeModal(); document.getElementById('modal').style.maxWidth = '';">Batal</button>
+        <button type="button" class="btn btn-danger" id="btn-confirm-del-pj">Ya, Hapus</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modal').style.maxWidth = '400px';
+  openModal('⚠️ Konfirmasi Hapus', html, null);
+
+  document.getElementById('btn-confirm-del-pj').addEventListener('click', () => {
+    store.perjalananList = store.perjalananList.filter(x => x.id !== id);
+    saveStore();
+    closeModal();
+    document.getElementById('modal').style.maxWidth = '';
+    renderPerjalananList(ruteId);
+    showToast('Perjalanan berhasil dihapus.', 'info');
+  });
+}
+
+function perjalananLabel(pj) {
+  return `${formatDate(pj.tanggalMulai)} — ${formatDate(pj.tanggalSelesai)}`;
+}
+
+function renderPerjalananList(ruteId) {
+  const content = document.getElementById('content');
+  const rute = store.ruteList.find(x => x.id === ruteId);
+  const trips = store.perjalananList
+    .filter(x => x.ruteId === ruteId)
+    .slice()
+    .sort((a, b) => b.tanggalMulai.localeCompare(a.tanggalMulai));
+
+  function countRecords(pj) {
+    const keys = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluarLK', 'uangMasuk'];
+    return keys.reduce((s, k) => s + store[k].filter(x => x.perjalananId === pj.id).length, 0);
+  }
+
+  const html = `
+  <div class="page-anim">
+    <div class="page-header">
+      <div>
+        <div class="page-title">🚚 Daftar Perjalanan</div>
+        <div class="page-subtitle">Setiap perjalanan (sekali jalan) untuk rute ${rute ? rute.nama : ''} punya laporannya sendiri</div>
+      </div>
+      <button class="btn btn-primary" id="btn-add-perjalanan">+ Tambah Perjalanan</button>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Perjalanan Rute ${rute ? rute.nama : ''}</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>No</th><th>Periode Perjalanan</th><th>Jumlah Transaksi</th><th>Aksi</th></tr></thead>
+          <tbody>
+            ${trips.length ? trips.map((pj, i) => `
+              <tr>
+                <td class="group-no-cell" style="width:44px;text-align:center;color:var(--text-muted);">${i + 1}</td>
+                <td class="primary" style="cursor:pointer;" onclick="openPerjalananDetail('${ruteId}','${pj.id}')">${perjalananLabel(pj)}</td>
+                <td>${countRecords(pj)} data</td>
+                <td>
+                  <div class="actions">
+                    <button class="btn btn-primary btn-sm" onclick="openPerjalananDetail('${ruteId}','${pj.id}')">📄 Lihat Laporan</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}')">✏️ Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}')">🗑️</button>
+                  </div>
+                </td>
+              </tr>`).join('') : `<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-title">Belum ada perjalanan</div>
+                <div class="empty-state-sub">Klik "+ Tambah Perjalanan" untuk mencatat perjalanan pertama</div>
+              </td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="margin-top:16px; font-size:13px; color:var(--text-muted);">
+      Lihat riwayat lengkap rute ini (semua data, termasuk yang belum dikelompokkan ke perjalanan):
+      <a href="#" class="pj-legacy-link" data-page="barang-terjual" style="color:var(--accent);">Barang Terjual</a>,
+      <a href="#" class="pj-legacy-link" data-page="rekap-piutang" style="color:var(--accent);">Rekap Piutang</a>,
+      <a href="#" class="pj-legacy-link" data-page="tagihan" style="color:var(--accent);">Tagihan</a>,
+      <a href="#" class="pj-legacy-link" data-page="uang-keluar-lk" style="color:var(--accent);">Uang Keluar</a>,
+      <a href="#" class="pj-legacy-link" data-page="uang-masuk" style="color:var(--accent);">Uang Masuk</a>
+    </div>
+  </div>`;
+
+  content.innerHTML = html;
+  document.getElementById('btn-add-perjalanan').addEventListener('click', () => openAddPerjalanan(ruteId));
+  document.querySelectorAll('.pj-legacy-link').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigate(a.dataset.page, ruteId);
+    });
+  });
+}
+
+const PERJALANAN_SECTIONS = [
+  {
+    key: 'barangTerjual', icon: '🚛', title: 'Barang Terjual',
+    columns: ['Tanggal', 'Pelanggan', 'Nama Barang', 'Jumlah', 'Harga Jual', 'Total'],
+    rowFn: b => `<td>${formatDate(b.tanggal)}</td><td class="primary">${b.pelanggan}</td><td>${b.nama}</td><td>${fmtNum(b.jumlah)} ${b.satuan}</td><td>${fmt(b.hargaJual)}</td><td class="amount-positive">${fmt(b.jumlah * b.hargaJual)}</td>`,
+  },
+  {
+    key: 'rekapPiutang', icon: '📑', title: 'Rekap Piutang',
+    columns: ['Tanggal', 'Nama Toko', 'No Faktur', 'Jumlah', 'Status'],
+    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.nama}</td><td>${x.noFaktur || '-'}</td><td class="amount-positive">${fmt(x.jumlah)}</td>${statusBadgeCell('rekapPiutang', x)}`,
+  },
+  {
+    key: 'tagihan', icon: '🧾', title: 'Tagihan',
+    columns: ['Tanggal', 'Nama', 'Keterangan', 'Jumlah'],
+    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.nama}</td><td>${x.keterangan}</td><td>${fmt(x.jumlah)}</td>`,
+  },
+  {
+    key: 'uangKeluarLK', icon: '💸', title: 'Uang Keluar',
+    columns: ['Tanggal', 'Keterangan', 'Jumlah'],
+    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-negative">-${fmt(x.jumlah)}</td>`,
+  },
+  {
+    key: 'uangMasuk', icon: '💰', title: 'Uang Masuk',
+    columns: ['Tanggal', 'Keterangan', 'Jumlah'],
+    rowFn: x => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-positive">${fmt(x.jumlah)}</td>`,
+  },
+];
+
+function openPerjalananDetail(ruteId, perjalananId) {
+  currentPage = 'perjalanan-list';
+  currentRuteId = ruteId;
+  currentPerjalananId = perjalananId;
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === 'perjalanan-list' && el.dataset.rute === ruteId);
+  });
+  const rute = store.ruteList.find(x => x.id === ruteId);
+  const pj = store.perjalananList.find(x => x.id === perjalananId);
+  document.getElementById('topbar-title').textContent =
+    `Laporan Perjalanan - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
+  renderPerjalananDetail(ruteId, perjalananId);
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function renderPerjalananDetail(ruteId, perjalananId) {
+  const content = document.getElementById('content');
+  const rute = store.ruteList.find(x => x.id === ruteId);
+  const pj = store.perjalananList.find(x => x.id === perjalananId);
+  if (!pj) { renderPerjalananList(ruteId); return; }
+
+  const penjualan = store.barangTerjual.filter(x => x.perjalananId === perjalananId)
+    .reduce((s, b) => s + b.jumlah * b.hargaJual, 0);
+  const masuk = store.uangMasuk.filter(x => x.perjalananId === perjalananId)
+    .reduce((s, x) => s + Number(x.jumlah || 0), 0);
+  const keluar = store.uangKeluarLK.filter(x => x.perjalananId === perjalananId)
+    .reduce((s, x) => s + Number(x.jumlah || 0), 0);
+  const hasil = penjualan + masuk - keluar;
+
+  const sectionsHtml = PERJALANAN_SECTIONS.map(sec => {
+    const rows = store[sec.key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId);
+    return `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div class="card-title">${sec.icon} ${sec.title}</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal('${sec.key}')">+ Tambah</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${sec.columns.map(c => `<th>${c}</th>`).join('')}<th>Aksi</th></tr></thead>
+          <tbody>
+            ${rows.length ? rows.map(r => `
+              <tr>
+                ${sec.rowFn(r)}
+                <td>
+                  <div class="actions">
+                    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${sec.key}','${r.id}')">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteItem('${sec.key}','${r.id}')">🗑️</button>
+                  </div>
+                </td>
+              </tr>`).join('') : `<tr><td colspan="${sec.columns.length + 1}" style="padding:24px;text-align:center;color:var(--text-muted)">Belum ada data</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  content.innerHTML = `
+  <div class="page-anim">
+    <div class="page-header" style="align-items:center;">
+      <div>
+        <a href="#" id="pj-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Daftar Perjalanan</a>
+        <div class="page-title" style="margin-top:6px;">🚚 Laporan Perjalanan ${rute ? rute.nama : ''}</div>
+        <div class="page-subtitle">Periode: ${perjalananLabel(pj)}</div>
+      </div>
+    </div>
+
+    <div class="profit-card" style="margin-bottom:24px; background: var(--bg-card); border-left: 4px solid ${hasil >= 0 ? 'var(--green)' : 'var(--red)'}">
+      <div class="profit-card-left">
+        <h3 style="color:var(--text-secondary)">Hasil Perjalanan Ini (Penjualan + Uang Masuk − Uang Keluar)</h3>
+        <div class="big-val" style="color: ${hasil >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(Math.abs(hasil))}</div>
+      </div>
+      <div class="profit-icon">${hasil >= 0 ? '📈' : '📉'}</div>
+    </div>
+
+    ${sectionsHtml}
+  </div>`;
+
+  document.getElementById('pj-back-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    currentPerjalananId = null;
+    renderPerjalananList(ruteId);
+  });
+}
 
 /* ========================
    GENERIC LIST RENDERER
@@ -1682,7 +1957,8 @@ function openMultiBarangTerjualModal() {
       }
       tr.style.outline = '';
       const ruteId = currentRuteId;
-      items.push({ id: uid(), ruteId, tanggal, pelanggan, nama, jumlah, satuan, hargaJual });
+      const perjalananId = currentPerjalananId;
+      items.push({ id: uid(), ruteId, perjalananId, tanggal, pelanggan, nama, jumlah, satuan, hargaJual });
     });
 
     if (hasError) { showToast('Lengkapi semua baris terlebih dahulu!', 'error'); return; }
@@ -1690,7 +1966,7 @@ function openMultiBarangTerjualModal() {
     saveStore();
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
-    renderList('barangTerjual');
+    refreshAfterListChange('barangTerjual');
     showToast(`✅ ${items.length} barang terjual ke ${pelanggan} berhasil disimpan!`, 'success');
   });
 }
@@ -1698,6 +1974,14 @@ function openMultiBarangTerjualModal() {
 /* ========================
    ADD / EDIT MODAL
    ======================== */
+function refreshAfterListChange(key) {
+  if (currentPerjalananId && currentRuteId && key !== 'ruteList') {
+    renderPerjalananDetail(currentRuteId, currentPerjalananId);
+  } else {
+    renderList(key);
+  }
+}
+
 function openAddModal(key) {
   if (key === 'barangMasuk') {
     openMultiBarangMasukModal();
@@ -1714,14 +1998,15 @@ function openAddModal(key) {
     ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
     fd.id = uid();
     if (currentRuteId && key !== 'ruteList') fd.ruteId = currentRuteId;
+    if (currentPerjalananId && key !== 'ruteList') fd.perjalananId = currentPerjalananId;
     store[key].push(fd);
-    
+
     // If we just added a new rute, refresh the sidebar dynamically
     if (key === 'ruteList') renderRuteSidebar();
     
     saveStore();
     closeModal();
-    renderList(key);
+    refreshAfterListChange(key);
     showToast(`Data ${cfg.title} berhasil ditambahkan!`, 'success');
   });
 }
@@ -1741,7 +2026,7 @@ function openEditModal(key, id) {
     
     saveStore();
     closeModal();
-    renderList(key);
+    refreshAfterListChange(key);
     showToast(`Data ${cfg.title} berhasil diperbarui!`, 'success');
   });
 }
@@ -1765,7 +2050,7 @@ function deleteItem(key, id) {
     saveStore();
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
-    renderList(key);
+    refreshAfterListChange(key);
     showToast('Data berhasil dihapus.', 'info');
   });
 }
