@@ -59,7 +59,7 @@ function toggleLunas(key, id) {
   item.status = item.status === 'Lunas' ? 'Belum Lunas' : 'Lunas';
   saveStore();
   if (currentPerjalananId && currentRuteId) {
-    renderPerjalananDetail(currentRuteId, currentPerjalananId);
+    renderPerjalananCategoryPage(currentRuteId, currentPerjalananId, key);
   } else {
     const searchInput = document.getElementById(`search-${key}`);
     renderTableBody(key, searchInput ? searchInput.value.toLowerCase().trim() : '');
@@ -1038,11 +1038,11 @@ function renderPerjalananList(ruteId) {
             ${trips.length ? trips.map((pj, i) => `
               <tr>
                 <td class="group-no-cell" style="width:44px;text-align:center;color:var(--text-muted);">${i + 1}</td>
-                <td class="primary" style="cursor:pointer;" onclick="openPerjalananDetail('${ruteId}','${pj.id}')">${perjalananLabel(pj)}</td>
+                <td class="primary" style="cursor:pointer;" onclick="openPerjalananMenu('${ruteId}','${pj.id}')">${perjalananLabel(pj)}</td>
                 <td>${countRecords(pj)} data</td>
                 <td>
                   <div class="actions">
-                    <button class="btn btn-primary btn-sm" onclick="openPerjalananDetail('${ruteId}','${pj.id}')">📄 Lihat Laporan</button>
+                    <button class="btn btn-primary btn-sm" onclick="openPerjalananMenu('${ruteId}','${pj.id}')">📄 Lihat Laporan</button>
                     <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}')">✏️ Edit</button>
                     <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}')">🗑️</button>
                   </div>
@@ -1105,7 +1105,7 @@ const PERJALANAN_SECTIONS = [
   },
 ];
 
-function openPerjalananDetail(ruteId, perjalananId) {
+function openPerjalananMenu(ruteId, perjalananId) {
   currentPage = 'perjalanan-list';
   currentRuteId = ruteId;
   currentPerjalananId = perjalananId;
@@ -1115,12 +1115,12 @@ function openPerjalananDetail(ruteId, perjalananId) {
   const rute = store.ruteList.find(x => x.id === ruteId);
   const pj = store.perjalananList.find(x => x.id === perjalananId);
   document.getElementById('topbar-title').textContent =
-    `Laporan Perjalanan - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
-  renderPerjalananDetail(ruteId, perjalananId);
+    `Perjalanan - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
+  renderPerjalananMenu(ruteId, perjalananId);
   document.getElementById('sidebar').classList.remove('open');
 }
 
-function renderPerjalananDetail(ruteId, perjalananId) {
+function renderPerjalananMenu(ruteId, perjalananId) {
   const content = document.getElementById('content');
   const rute = store.ruteList.find(x => x.id === ruteId);
   const pj = store.perjalananList.find(x => x.id === perjalananId);
@@ -1134,32 +1134,19 @@ function renderPerjalananDetail(ruteId, perjalananId) {
     .reduce((s, x) => s + Number(x.jumlah || 0), 0);
   const hasil = penjualan + masuk - keluar;
 
-  const sectionsHtml = PERJALANAN_SECTIONS.map(sec => {
-    const rows = store[sec.key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId);
+  const cardsHtml = PERJALANAN_SECTIONS.map(sec => {
+    const count = store[sec.key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId).length;
     return `
-    <div class="card" style="margin-bottom:20px;">
-      <div class="card-header">
-        <div class="card-title">${sec.icon} ${sec.title}</div>
-        <button class="btn btn-primary btn-sm" onclick="openAddModal('${sec.key}')">+ Tambah</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>${sec.columns.map(c => `<th>${c}</th>`).join('')}<th>Aksi</th></tr></thead>
-          <tbody>
-            ${rows.length ? rows.map(r => `
-              <tr>
-                ${sec.rowFn(r)}
-                <td>
-                  <div class="actions">
-                    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${sec.key}','${r.id}')">✏️</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteItem('${sec.key}','${r.id}')">🗑️</button>
-                  </div>
-                </td>
-              </tr>`).join('') : `<tr><td colspan="${sec.columns.length + 1}" style="padding:24px;text-align:center;color:var(--text-muted)">Belum ada data</td></tr>`}
-          </tbody>
-        </table>
-      </div>
-    </div>`;
+      <div class="card" style="cursor:pointer;" onclick="openPerjalananCategory('${ruteId}','${perjalananId}','${sec.key}')">
+        <div style="padding:24px; display:flex; align-items:center; gap:16px;">
+          <div style="font-size:32px;">${sec.icon}</div>
+          <div style="flex:1;">
+            <div style="font-weight:700; font-size:15px; color:var(--text-primary);">${sec.title}</div>
+            <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">${count} data tercatat</div>
+          </div>
+          <div style="color:var(--text-muted);">›</div>
+        </div>
+      </div>`;
   }).join('');
 
   content.innerHTML = `
@@ -1167,8 +1154,8 @@ function renderPerjalananDetail(ruteId, perjalananId) {
     <div class="page-header" style="align-items:center;">
       <div>
         <a href="#" id="pj-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Daftar Perjalanan</a>
-        <div class="page-title" style="margin-top:6px;">🚚 Laporan Perjalanan ${rute ? rute.nama : ''}</div>
-        <div class="page-subtitle">Periode: ${perjalananLabel(pj)}</div>
+        <div class="page-title" style="margin-top:6px;">🚚 Perjalanan ${rute ? rute.nama : ''}</div>
+        <div class="page-subtitle">Periode: ${perjalananLabel(pj)} — pilih kategori data untuk melihat & mencetak</div>
       </div>
     </div>
 
@@ -1180,13 +1167,92 @@ function renderPerjalananDetail(ruteId, perjalananId) {
       <div class="profit-icon">${hasil >= 0 ? '📈' : '📉'}</div>
     </div>
 
-    ${sectionsHtml}
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+      ${cardsHtml}
+    </div>
   </div>`;
 
   document.getElementById('pj-back-link').addEventListener('click', (e) => {
     e.preventDefault();
     currentPerjalananId = null;
     renderPerjalananList(ruteId);
+  });
+}
+
+function openPerjalananCategory(ruteId, perjalananId, key) {
+  currentRuteId = ruteId;
+  currentPerjalananId = perjalananId;
+  const rute = store.ruteList.find(x => x.id === ruteId);
+  const pj = store.perjalananList.find(x => x.id === perjalananId);
+  const sec = PERJALANAN_SECTIONS.find(s => s.key === key);
+  document.getElementById('topbar-title').textContent =
+    `${sec.title} - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
+  renderPerjalananCategoryPage(ruteId, perjalananId, key);
+}
+
+function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
+  const content = document.getElementById('content');
+  const rute = store.ruteList.find(x => x.id === ruteId);
+  const pj = store.perjalananList.find(x => x.id === perjalananId);
+  const sec = PERJALANAN_SECTIONS.find(s => s.key === key);
+  if (!pj || !sec) { renderPerjalananList(ruteId); return; }
+
+  const rows = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId);
+
+  content.innerHTML = `
+  <div class="page-anim">
+    <div class="print-header" id="print-header-pj-${key}"></div>
+    <div class="page-header" style="align-items:center;">
+      <div class="no-print">
+        <a href="#" id="pj-cat-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Menu Perjalanan</a>
+        <div class="page-title" style="margin-top:6px;">${sec.icon} ${sec.title}</div>
+        <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
+      </div>
+      <div class="no-print" style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" id="btn-print-pj-${key}">🖨️ Cetak</button>
+        <button class="btn btn-primary" id="btn-add-pj-${key}">+ Tambah</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>${sec.columns.map(c => `<th>${c}</th>`).join('')}<th>Aksi</th></tr></thead>
+          <tbody>
+            ${rows.length ? rows.map(r => `
+              <tr>
+                ${sec.rowFn(r)}
+                <td>
+                  <div class="actions">
+                    <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${r.id}')">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${r.id}')">🗑️</button>
+                  </div>
+                </td>
+              </tr>`).join('') : `<tr><td colspan="${sec.columns.length + 1}" style="padding:40px;text-align:center;color:var(--text-muted)">
+                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-title">Belum ada data</div>
+                <div class="empty-state-sub">Klik "+ Tambah" untuk mencatat ${sec.title.toLowerCase()} perjalanan ini</div>
+              </td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('pj-cat-back-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    openPerjalananMenu(ruteId, perjalananId);
+  });
+  document.getElementById(`btn-add-pj-${key}`).addEventListener('click', () => openAddModal(key));
+  document.getElementById(`btn-print-pj-${key}`).addEventListener('click', () => {
+    const el = document.getElementById(`print-header-pj-${key}`);
+    if (el) {
+      el.innerHTML = `
+        <div class="print-title">Toko Panglima Bangunan — ${sec.title.toUpperCase()}</div>
+        <div class="print-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
+        <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
+    }
+    window.print();
   });
 }
 
@@ -1203,16 +1269,20 @@ function renderList(key) {
 
   const html = `
   <div class="page-anim">
+    <div class="print-header" id="print-header-${key}"></div>
     <div class="page-header">
-      <div>
+      <div class="no-print">
         <div class="page-title">${cfg.icon} ${cfg.title}</div>
         <div class="page-subtitle">${cfg.subtitle}</div>
       </div>
-      <button class="btn btn-primary" id="btn-add-${key}">${cfg.addLabel}</button>
+      <div class="no-print" style="display:flex; gap:10px;">
+        <button class="btn btn-ghost" id="btn-print-${key}">🖨️ Cetak</button>
+        <button class="btn btn-primary" id="btn-add-${key}">${cfg.addLabel}</button>
+      </div>
     </div>
 
     <div class="card">
-      <div class="card-header" style="flex-wrap:wrap; row-gap:12px;">
+      <div class="card-header no-print" style="flex-wrap:wrap; row-gap:12px;">
         <div class="card-title">Data ${cfg.title}</div>
         <div class="search-bar">
           <span>🔍</span>
@@ -1220,7 +1290,7 @@ function renderList(key) {
         </div>
       </div>
       ${hasDateFilter ? `
-      <div class="card-header" style="flex-wrap:wrap; row-gap:12px;">
+      <div class="card-header no-print" style="flex-wrap:wrap; row-gap:12px;">
         <div style="display:flex; align-items:center; gap:8px;">
           <label style="font-size:13px; color:var(--text-muted); font-weight:600;">Filter:</label>
           <div style="display:flex; align-items:center; gap:8px;" id="filter-inputs-${key}">${dateFilterInputsHtml(key)}</div>
@@ -1242,6 +1312,9 @@ function renderList(key) {
   document.getElementById(`search-${key}`).addEventListener('input', (e) => {
     refreshTableBody(key);
   });
+  document.getElementById(`btn-print-${key}`).addEventListener('click', () => {
+    printCurrentPage(cfg.title, key);
+  });
 
   if (hasDateFilter) {
     document.getElementById(`filter-bulan-${key}`).addEventListener('change', (e) => {
@@ -1253,6 +1326,26 @@ function renderList(key) {
       refreshTableBody(key);
     });
   }
+}
+
+function printCurrentPage(title, key) {
+  let periode = 'Semua Data';
+  const f = listFilters[key];
+  if (f && (f.bulan !== '' || f.tahun !== '')) {
+    const bulanTxt = f.bulan !== '' ? MONTHS[Number(f.bulan)] : 'Semua Bulan';
+    const tahunTxt = f.tahun !== '' ? f.tahun : 'Semua Tahun';
+    periode = `${bulanTxt} ${tahunTxt}`;
+  }
+  const rute = currentRuteId ? store.ruteList.find(r => r.id === currentRuteId) : null;
+  const subtitle = rute ? `Rute ${rute.nama} — Periode: ${periode}` : `Periode: ${periode}`;
+  const el = document.getElementById(`print-header-${key}`);
+  if (el) {
+    el.innerHTML = `
+      <div class="print-title">Toko Panglima Bangunan — ${title.toUpperCase()}</div>
+      <div class="print-subtitle">${subtitle}</div>
+      <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
+  }
+  window.print();
 }
 
 function renderTableBody(key, query = '') {
@@ -1976,7 +2069,7 @@ function openMultiBarangTerjualModal() {
    ======================== */
 function refreshAfterListChange(key) {
   if (currentPerjalananId && currentRuteId && key !== 'ruteList') {
-    renderPerjalananDetail(currentRuteId, currentPerjalananId);
+    renderPerjalananCategoryPage(currentRuteId, currentPerjalananId, key);
   } else {
     renderList(key);
   }

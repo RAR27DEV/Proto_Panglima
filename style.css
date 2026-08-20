@@ -1095,3 +1095,43 @@ tbody tr.group-first-row td { background: rgba(255,255,255,.02); }
   margin-right: 5px;
   animation: pulse-dot 2s ease infinite;
 }
+
+/* ========================
+   PRINT / CETAK DOKUMEN
+   ======================== */
+.print-only { display: none; }
+.print-header { display: none; }
+
+@media print {
+  :root {
+    --bg-base:        #ffffff;
+    --bg-card:        #ffffff;
+    --bg-card-hover:  #ffffff;
+    --bg-sidebar:     #f0f1f4;
+    --border:         #b8bccb;
+    --border-light:   #cfd2de;
+    --text-primary:   #14161f;
+    --text-secondary: #3a3d4d;
+    --text-muted:     #5c5f70;
+    --accent:         #2542b8;
+    --green:  #157347;
+    --red:    #b3261e;
+    --yellow: #a15c00;
+    --purple: #5b3fa0;
+    --orange: #a1520c;
+  }
+
+  .sidebar, .topbar, .modal-overlay, .toast, .no-print { display: none !important; }
+  .main-wrapper { margin: 0 !important; }
+  .content { padding: 16px !important; }
+  body { background: #fff; }
+
+  .card { border: 1px solid var(--border); box-shadow: none; break-inside: avoid; }
+  table th:last-child, table td:last-child { display: none; }
+  .badge { border: 1px solid currentColor; }
+
+  .print-header { display: block !important; margin-bottom: 16px; }
+  .print-header .print-title { font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; }
+  .print-header .print-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+  .print-only { display: block !important; }
+}
