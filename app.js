@@ -10,6 +10,9 @@
    ======================== */
 const fmt = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID');
 const fmtNum = (n) => Number(n || 0).toLocaleString('id-ID');
+/* Material Symbols icon helper */
+const ico = (name, size) =>
+  `<span class="material-symbols-outlined"${size ? ` style="font-size:${size}px"` : ''}>${name}</span>`;
 const fmtShort = (n) => {
   n = Number(n || 0);
   if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'jt';
@@ -48,7 +51,7 @@ function statusBadgeCell(key, item) {
   const isLunas = item.status === 'Lunas';
   return `<td>
     <span class="badge ${isLunas ? 'badge-green' : 'badge-orange'}" style="cursor:pointer" onclick="toggleLunas('${key}','${item.id}')" title="Klik untuk ubah status">
-      ${isLunas ? '✔ Lunas' : '⏳ Belum Lunas'}
+      ${isLunas ? '&#10003; Lunas' : 'Belum Lunas'}
     </span>
   </td>`;
 }
@@ -478,24 +481,24 @@ function renderRuteSidebar() {
   store.ruteList.forEach(rute => {
     html += `
       <div class="nav-section-label collapsible" onclick="toggleSubmenu('submenu-rute-${rute.id}')">
-        <span>📁 ${rute.nama}</span>
+        <span style="display:flex;align-items:center;gap:7px;">${ico('local_shipping', 17)}${rute.nama}</span>
         <span class="chevron" id="chevron-rute-${rute.id}">▼</span>
       </div>
       <div class="submenu" id="submenu-rute-${rute.id}">
         <a class="nav-item" data-page="pj-barang-terjual" data-rute="${rute.id}">
-          <span class="nav-icon">🚛</span><span>Barang Terjual</span>
+          <span class="nav-icon">${ico('local_shipping')}</span><span>Barang Terjual</span>
         </a>
         <a class="nav-item" data-page="pj-rekap-piutang" data-rute="${rute.id}">
-          <span class="nav-icon">📑</span><span>Rekap Piutang</span>
+          <span class="nav-icon">${ico('receipt_long')}</span><span>Rekap Piutang</span>
         </a>
         <a class="nav-item" data-page="pj-tagihan" data-rute="${rute.id}">
-          <span class="nav-icon">🧾</span><span>Tagihan</span>
+          <span class="nav-icon">${ico('request_quote')}</span><span>Tagihan</span>
         </a>
         <a class="nav-item" data-page="pj-uang-keluar" data-rute="${rute.id}">
-          <span class="nav-icon">💸</span><span>Uang Keluar</span>
+          <span class="nav-icon">${ico('payments')}</span><span>Uang Keluar</span>
         </a>
         <a class="nav-item" data-page="pj-uang-masuk" data-rute="${rute.id}">
-          <span class="nav-icon">💰</span><span>Uang Masuk</span>
+          <span class="nav-icon">${ico('savings')}</span><span>Uang Masuk</span>
         </a>
       </div>
     `;
@@ -537,7 +540,8 @@ const modalTitle   = document.getElementById('modal-title');
 const modalBody    = document.getElementById('modal-body');
 
 function openModal(title, bodyHTML, onSubmit) {
-  modalTitle.textContent = title;
+  // judul boleh berisi ikon (HTML) — isinya selalu dari template internal, bukan input pengguna
+  modalTitle.innerHTML = title;
   modalBody.innerHTML = bodyHTML;
   modalOverlay.classList.add('open');
   const form = modalBody.querySelector('form');
@@ -669,7 +673,7 @@ function renderDashboard() {
   if (lowStocks.length > 0) {
     alertsHtml += `
       <div style="background: var(--bg-card); border-left: 4px solid var(--red); padding: 16px; border-radius: 8px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start;">
-        <div style="font-size: 24px;">⚠️</div>
+        <div style="font-size:24px;color:var(--red);display:flex;">${ico('warning',26)}</div>
         <div>
           <h4 style="color: var(--text-primary); margin: 0 0 8px 0;">Peringatan Stok Habis / Menipis</h4>
           <ul style="margin:0; padding-left:20px; color:var(--text-secondary); font-size:14px;">
@@ -683,7 +687,7 @@ function renderDashboard() {
   if (utangOverdue.length > 0) {
     alertsHtml += `
       <div style="background: var(--bg-card); border-left: 4px solid var(--orange); padding: 16px; border-radius: 8px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start;">
-        <div style="font-size: 24px;">🔔</div>
+        <div style="font-size:24px;color:var(--amber);display:flex;">${ico('notifications_active',26)}</div>
         <div>
           <h4 style="color: var(--text-primary); margin: 0 0 8px 0;">Peringatan Utang Jatuh Tempo (>30 Hari)</h4>
           <ul style="margin:0; padding-left:20px; color:var(--text-secondary); font-size:14px;">
@@ -710,37 +714,37 @@ function renderDashboard() {
         <h3>Estimasi ${labaPos ? 'Keuntungan' : 'Kerugian'} Bulan Ini</h3>
         <div class="big-val">${fmt(Math.abs(laba))}</div>
       </div>
-      <div class="profit-icon">${labaPos ? '📈' : '📉'}</div>
+      <div class="profit-icon">${labaPos ? ico('trending_up',44) : ico('trending_down',44)}</div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card green">
-        <div class="stat-icon green">💰</div>
+        <div class="stat-icon green">${ico('trending_up')}</div>
         <div class="stat-label">Uang Masuk (Bulan Ini)</div>
         <div class="stat-value">${fmt(cur.uangMasuk)}</div>
       </div>
       <div class="stat-card red">
-        <div class="stat-icon red">💸</div>
+        <div class="stat-icon red">${ico('trending_down')}</div>
         <div class="stat-label">Uang Keluar (Bulan Ini)</div>
         <div class="stat-value">${fmt(cur.uangKeluar)}</div>
       </div>
       <div class="stat-card blue">
-        <div class="stat-icon blue">🚛</div>
+        <div class="stat-icon blue">${ico('local_shipping')}</div>
         <div class="stat-label">Penjualan Luar Kota</div>
         <div class="stat-value">${fmt(cur.penjualan)}</div>
       </div>
       <div class="stat-card yellow">
-        <div class="stat-icon yellow">💳</div>
+        <div class="stat-icon yellow">${ico('credit_card')}</div>
         <div class="stat-label">Total Piutang Aktif</div>
         <div class="stat-value">${fmt(cur.piutang)}</div>
       </div>
       <div class="stat-card red">
-        <div class="stat-icon red">📋</div>
+        <div class="stat-icon red">${ico('assignment')}</div>
         <div class="stat-label">Total Utang</div>
         <div class="stat-value">${fmt(cur.utang)}</div>
       </div>
       <div class="stat-card purple">
-        <div class="stat-icon purple">🏪</div>
+        <div class="stat-icon purple">${ico('shelves')}</div>
         <div class="stat-label">Nilai Stok Toko</div>
         <div class="stat-value">${fmt(cur.stokNilai)}</div>
       </div>
@@ -749,7 +753,7 @@ function renderDashboard() {
     <div class="dashboard-grid">
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📦 Stok Barang (Real-Time)</div>
+          <div class="card-title">${ico('inventory_2')} Stok Barang (Real-Time)</div>
         </div>
         <div class="recent-list">
           ${(function() {
@@ -773,7 +777,7 @@ function renderDashboard() {
 
       <div class="card">
         <div class="card-header">
-          <div class="card-title">💳 Piutang Aktif</div>
+          <div class="card-title">${ico('credit_card')} Piutang Aktif</div>
         </div>
         <div class="recent-list">
           ${store.piutang.filter(x => x.status !== 'Lunas').slice(-5).reverse().map(p => `
@@ -791,7 +795,7 @@ function renderDashboard() {
 
     <div class="card">
       <div class="card-header">
-        <div class="card-title">💸 Uang Keluar Terbaru</div>
+        <div class="card-title">${ico('payments')} Uang Keluar Terbaru</div>
       </div>
       <div class="recent-list">
         ${[...store.uangKeluar, ...store.uangKeluarLK].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,6).map(k => `
@@ -817,7 +821,7 @@ const listConfig = {
   barangMasuk: {
     title: 'Barang Masuk',
     subtitle: 'Pencatatan barang masuk ke toko utama',
-    icon: '📦',
+    icon: ico('inventory_2'),
     addLabel: '+ Tambah Barang Masuk',
     columns: ['No','Supplier / Tanggal','Nama Barang','Isi (Besar)','Isi (Ecer)','Harga Modal','Harga Jual','Aksi'],
     grouped: true,
@@ -843,7 +847,7 @@ const listConfig = {
   utang: {
     title: 'Utang',
     subtitle: 'Catatan utang toko utama',
-    icon: '📋',
+    icon: ico('assignment'),
     addLabel: '+ Tambah Utang',
     columns: ['No','Tanggal','Keterangan','Jumlah','Status','Aksi'],
     grouped: false,
@@ -854,7 +858,7 @@ const listConfig = {
   piutang: {
     title: 'Piutang',
     subtitle: 'Catatan piutang toko utama',
-    icon: '💳',
+    icon: ico('credit_card'),
     addLabel: '+ Tambah Piutang',
     columns: ['No','Nama Toko','Tanggal','No Faktur','Jumlah','Status','Aksi'],
     grouped: true,
@@ -876,7 +880,7 @@ const listConfig = {
   uangKeluar: {
     title: 'Uang Keluar',
     subtitle: 'Pengeluaran toko utama',
-    icon: '💸',
+    icon: ico('payments'),
     addLabel: '+ Tambah Uang Keluar',
     columns: ['No','Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: false,
@@ -887,7 +891,7 @@ const listConfig = {
   barangTerjual: {
     title: 'Barang Terjual (Luar Kota)',
     subtitle: 'Pencatatan penjualan rute luar kota',
-    icon: '🚛',
+    icon: ico('local_shipping'),
     addLabel: '+ Tambah Barang Terjual',
     columns: ['No','Nama Toko','No PM','Tanggal','Nama Barang','Qty','Harga','Jumlah','Aksi'],
     grouped: true,
@@ -909,7 +913,7 @@ const listConfig = {
   rekapPiutang: {
     title: 'Rekap Piutang (Luar Kota)',
     subtitle: 'Piutang dari rute luar kota',
-    icon: '📑',
+    icon: ico('receipt_long'),
     addLabel: '+ Tambah Rekap Piutang',
     columns: ['No','Nama Toko','Tanggal','No Faktur','Jumlah','Status','Aksi'],
     grouped: true,
@@ -931,7 +935,7 @@ const listConfig = {
   tagihan: {
     title: 'Tagihan (Luar Kota)',
     subtitle: 'Tagihan dari rute luar kota',
-    icon: '🧾',
+    icon: ico('request_quote'),
     addLabel: '+ Tambah Tagihan',
     columns: ['No','Nama / Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: true,
@@ -950,7 +954,7 @@ const listConfig = {
   uangKeluarLK: {
     title: 'Uang Keluar (Luar Kota)',
     subtitle: 'Pengeluaran selama rute luar kota',
-    icon: '💸',
+    icon: ico('payments'),
     addLabel: '+ Tambah Uang Keluar',
     columns: ['No','Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: false,
@@ -961,7 +965,7 @@ const listConfig = {
   uangMasuk: {
     title: 'Uang Masuk (Luar Kota)',
     subtitle: 'Penerimaan uang rute luar kota',
-    icon: '💰',
+    icon: ico('savings'),
     addLabel: '+ Tambah Uang Masuk',
     columns: ['No','Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: false,
@@ -972,7 +976,7 @@ const listConfig = {
   ruteList: {
     title: 'Manajemen Rute',
     subtitle: 'Kelola daftar rute luar kota',
-    icon: '⚙️',
+    icon: ico('map'),
     addLabel: '+ Tambah Rute',
     columns: ['No', 'Nama Rute', 'Aksi'],
     grouped: false,
@@ -997,13 +1001,13 @@ function formPerjalanan(data = {}) {
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
 }
 
 function openAddPerjalanan(ruteId, key) {
-  openModal('🚚 Tambah Perjalanan', formPerjalanan(), (form) => {
+  openModal('Tambah Perjalanan', formPerjalanan(), (form) => {
     const fd = Object.fromEntries(new FormData(form));
     fd.id = uid();
     fd.ruteId = ruteId;
@@ -1018,7 +1022,7 @@ function openAddPerjalanan(ruteId, key) {
 function openEditPerjalanan(id, key) {
   const item = store.perjalananList.find(x => x.id === id);
   if (!item) return;
-  openModal('✏️ Edit Perjalanan', formPerjalanan(item), (form) => {
+  openModal('Edit Perjalanan', formPerjalanan(item), (form) => {
     const fd = Object.fromEntries(new FormData(form));
     const idx = store.perjalananList.findIndex(x => x.id === id);
     store.perjalananList[idx] = { ...item, ...fd };
@@ -1041,7 +1045,7 @@ function deletePerjalanan(id, ruteId, key) {
     </div>
   `;
   document.getElementById('modal').style.maxWidth = '400px';
-  openModal('⚠️ Konfirmasi Hapus', html, null);
+  openModal('Konfirmasi Hapus', html, null);
 
   document.getElementById('btn-confirm-del-pj').addEventListener('click', () => {
     store.perjalananList = store.perjalananList.filter(x => x.id !== id);
@@ -1102,14 +1106,14 @@ function renderCategoryTripList(ruteId, key) {
                 <td>${count} data</td>
                 <td>
                   <div class="actions">
-                    <button class="btn btn-primary btn-sm" onclick="openPerjalananCategory('${ruteId}','${pj.id}','${key}')">📄 Lihat & Cetak</button>
-                    <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}','${key}')">✏️ Edit</button>
-                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}','${key}')">🗑️</button>
+                    <button class="btn btn-primary btn-sm" onclick="openPerjalananCategory('${ruteId}','${pj.id}','${key}')">${ico('description',16)} Lihat & Cetak</button>
+                    <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}','${key}')">${ico('edit',16)} Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}','${key}')">${ico('delete',16)}</button>
                   </div>
                 </td>
               </tr>`;
             }).join('') : `<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">
-                <div class="empty-state-icon">📭</div>
+                <div class="empty-state-icon">${ico('inbox')}</div>
                 <div class="empty-state-title">Belum ada perjalanan</div>
                 <div class="empty-state-sub">Klik "+ Tambah Perjalanan" untuk mencatat perjalanan pertama</div>
               </td></tr>`}
@@ -1166,7 +1170,7 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
         <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
       </div>
       <div class="no-print" style="display:flex; gap:10px;">
-        <button class="btn btn-ghost" id="btn-print-pj-${key}">🖨️ Cetak</button>
+        <button class="btn btn-ghost" id="btn-print-pj-${key}">${ico('print',17)} Cetak</button>
         <button class="btn btn-primary" id="btn-add-pj-${key}">${cfg.addLabel}</button>
       </div>
     </div>
@@ -1227,7 +1231,7 @@ function renderList(key) {
         <div class="page-subtitle">${cfg.subtitle}</div>
       </div>
       <div class="no-print" style="display:flex; gap:10px;">
-        <button class="btn btn-ghost" id="btn-print-${key}">🖨️ Cetak</button>
+        <button class="btn btn-ghost" id="btn-print-${key}">${ico('print',17)} Cetak</button>
         <button class="btn btn-primary" id="btn-add-${key}">${cfg.addLabel}</button>
       </div>
     </div>
@@ -1236,7 +1240,7 @@ function renderList(key) {
       <div class="card-header no-print" style="flex-wrap:wrap; row-gap:12px;">
         <div class="card-title">Data ${cfg.title}</div>
         <div class="search-bar">
-          <span>🔍</span>
+          ${ico('search')}
           <input type="text" id="search-${key}" placeholder="Cari..." />
         </div>
       </div>
@@ -1324,7 +1328,7 @@ function renderTableBody(key, query = '') {
 
 function renderEmptyTbody(tbody, colspan, sub) {
   tbody.innerHTML = `<tr><td colspan="${colspan}" style="padding:40px;text-align:center;color:var(--text-muted)">
-    <div class="empty-state-icon">📭</div>
+    <div class="empty-state-icon">${ico('inbox')}</div>
     <div class="empty-state-title">Tidak ada data</div>
     <div class="empty-state-sub">${sub}</div>
   </td></tr>`;
@@ -1344,8 +1348,8 @@ function renderRowsIntoTbody(key, filtered, tbody) {
         ${cfg.rowFn(item)}
         <td>
           <div class="actions">
-            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">✏️ Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${item.id}')">🗑️</button>
+            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">${ico('edit',16)} Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${item.id}')">${ico('delete',16)}</button>
           </div>
         </td>
       </tr>
@@ -1389,8 +1393,8 @@ function renderGroupedBody(key, items, tbody, cfg) {
       // actions
       html += `<td>
         <div class="actions">
-          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">✏️ Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${item.id}')">🗑️</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">${ico('edit',16)} Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${item.id}')">${ico('delete',16)}</button>
         </div></td>
       </tr>`;
     });
@@ -1535,7 +1539,7 @@ function formBarangMasuk(data = {}) {
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
 }
@@ -1563,8 +1567,8 @@ function buildMultiBarangMasukForm() {
   </div>
 
   <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-    <span style="font-size:13px;font-weight:700;color:var(--text-primary)">📦 Daftar Barang</span>
-    <button type="button" class="btn btn-ghost btn-sm" id="bm-add-row">＋ Tambah Baris</button>
+    <span style="font-size:13px;font-weight:700;color:var(--text-primary)">Daftar Barang</span>
+    <button type="button" class="btn btn-ghost btn-sm" id="bm-add-row">${ico('add',16)} Tambah Baris</button>
   </div>
 
   <div class="bm-table-wrap">
@@ -1585,7 +1589,7 @@ function buildMultiBarangMasukForm() {
 
   <div class="form-actions" style="margin-top:16px">
     <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-    <button type="button" class="btn btn-primary" id="bm-simpan">💾 Simpan Semua</button>
+    <button type="button" class="btn btn-primary" id="bm-simpan">${ico('save',17)} Simpan Semua</button>
   </div>`;
 }
 
@@ -1606,7 +1610,7 @@ function bmRowHTML(idx) {
       <input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual2" />
     </td>
     <td style="text-align:center;vertical-align:top">
-      <button type="button" class="btn btn-danger btn-sm" onclick="bmRemoveRow(${idx})" title="Hapus baris">🗑️</button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="bmRemoveRow(${idx})" title="Hapus baris">${ico('delete',16)}</button>
     </td>
   </tr>`;
 }
@@ -1639,7 +1643,7 @@ window.bmRemoveRow = bmRemoveRow;
 function openMultiBarangMasukModal() {
   _bmRowCount = 0;
   document.getElementById('modal').style.maxWidth = '920px';
-  openModal('📦 Tambah Barang Masuk', buildMultiBarangMasukForm(), null);
+  openModal('Tambah Barang Masuk', buildMultiBarangMasukForm(), null);
 
   bmAddRow();
   document.getElementById('bm-add-row').addEventListener('click', bmAddRow);
@@ -1683,7 +1687,7 @@ function openMultiBarangMasukModal() {
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
     renderList('barangMasuk');
-    showToast(`✅ ${items.length} barang dari ${supplier} berhasil disimpan!`, 'success');
+    showToast(`${items.length} barang dari ${supplier} berhasil disimpan!`, 'success');
   });
 }
 
@@ -1727,7 +1731,7 @@ function formBarangTerjual(data = {}) {
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
 }
@@ -1761,7 +1765,7 @@ function formPiutang(data = {}) {
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
 }
@@ -1795,7 +1799,7 @@ function formRekapPiutang(data = {}) {
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
 }
@@ -1823,7 +1827,7 @@ function formUtang(data = {}) {
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-      <button type="submit" class="btn btn-primary">💾 Simpan</button>
+      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
 }
@@ -1848,7 +1852,7 @@ function formSimple(fields) {
       ${rows.join('')}
       <div class="form-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-        <button type="submit" class="btn btn-primary">💾 Simpan</button>
+        <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
       </div>
     </form>`;
   };
@@ -1877,8 +1881,8 @@ function buildMultiBarangTerjualForm() {
   </div>
 
   <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-    <span style="font-size:13px;font-weight:700;color:var(--text-primary)">📦 Daftar Barang Terjual</span>
-    <button type="button" class="btn btn-ghost btn-sm" id="bt-add-row">＋ Tambah Baris</button>
+    <span style="font-size:13px;font-weight:700;color:var(--text-primary)">Daftar Barang Terjual</span>
+    <button type="button" class="btn btn-ghost btn-sm" id="bt-add-row">${ico('add',16)} Tambah Baris</button>
   </div>
 
   <div class="bm-table-wrap">
@@ -1899,7 +1903,7 @@ function buildMultiBarangTerjualForm() {
 
   <div class="form-actions" style="margin-top:16px">
     <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
-    <button type="button" class="btn btn-primary" id="bt-simpan">💾 Simpan Semua</button>
+    <button type="button" class="btn btn-primary" id="bt-simpan">${ico('save',17)} Simpan Semua</button>
   </div>`;
 }
 
@@ -1923,7 +1927,7 @@ function btAddRow() {
     <td><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual" oninput="btCalcRow(${rid})" /></td>
     <td><span class="bt-total" id="bt-total-${rid}" style="font-size:12px;color:var(--green);font-weight:700">Rp 0</span></td>
     <td style="text-align:center">
-      <button type="button" class="btn btn-danger btn-sm" onclick="btRemoveRow(${rid})">🗑️</button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="btRemoveRow(${rid})">${ico('delete',16)}</button>
     </td>`;
   tbody.appendChild(tr);
   tr.querySelector('[data-field="nama"]').focus();
@@ -1994,7 +1998,7 @@ window.handleStockSelection = handleStockSelection;
 function openMultiBarangTerjualModal() {
   _btRowCount = 0;
   document.getElementById('modal').style.maxWidth = '840px';
-  openModal('🚛 Tambah Barang Terjual', buildMultiBarangTerjualForm(), null);
+  openModal('Tambah Barang Terjual', buildMultiBarangTerjualForm(), null);
   btAddRow();
   document.getElementById('bt-add-row').addEventListener('click', btAddRow);
   document.getElementById('bt-simpan').addEventListener('click', () => {
@@ -2030,7 +2034,7 @@ function openMultiBarangTerjualModal() {
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
     refreshAfterListChange('barangTerjual');
-    showToast(`✅ ${items.length} barang terjual ke ${pelanggan} berhasil disimpan!`, 'success');
+    showToast(`${items.length} barang terjual ke ${pelanggan} berhasil disimpan!`, 'success');
   });
 }
 
@@ -2078,7 +2082,7 @@ function openEditModal(key, id) {
   const cfg = listConfig[key];
   const item = store[key].find(x => x.id === id);
   if (!item) return;
-  openModal(`✏️ Edit ${cfg.title}`, cfg.formFn(item), (form) => {
+  openModal( `Edit ${cfg.title}`, cfg.formFn(item), (form) => {
     const fd = Object.fromEntries(new FormData(form));
     ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
     const idx = store[key].findIndex(x => x.id === id);
@@ -2105,7 +2109,7 @@ function deleteItem(key, id) {
     </div>
   `;
   document.getElementById('modal').style.maxWidth = '400px';
-  openModal('⚠️ Konfirmasi Hapus', html, null);
+  openModal('Konfirmasi Hapus', html, null);
   
   document.getElementById('btn-confirm-del').addEventListener('click', () => {
     store[key] = store[key].filter(x => x.id !== id);
@@ -2218,29 +2222,29 @@ function renderStok() {
   <div class="page-anim">
     <div class="page-header">
       <div>
-        <div class="page-title">🏪 Stok Toko</div>
+        <div class="page-title">${ico('shelves',26)} Stok Toko</div>
         <div class="page-subtitle">Persediaan barang berdasarkan data Barang Masuk</div>
       </div>
     </div>
 
     <div class="stats-grid" style="margin-bottom:24px">
       <div class="stat-card blue">
-        <div class="stat-icon blue">📦</div>
+        <div class="stat-icon blue">${ico('inventory_2')}</div>
         <div class="stat-label">Total Jenis Barang</div>
         <div class="stat-value">${items.length}</div>
       </div>
       <div class="stat-card ${menipisCount > 0 ? 'red' : 'green'}">
-        <div class="stat-icon ${menipisCount > 0 ? 'red' : 'green'}">⚠️</div>
+        <div class="stat-icon ${menipisCount > 0 ? 'red' : 'green'}">${ico('warning')}</div>
         <div class="stat-label">Stok Menipis / Habis</div>
         <div class="stat-value">${menipisCount}</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-icon green">💵</div>
+        <div class="stat-icon green">${ico('account_balance_wallet')}</div>
         <div class="stat-label">Total Nilai Modal Stok</div>
         <div class="stat-value">${fmt(totalModal)}</div>
       </div>
       <div class="stat-card purple">
-        <div class="stat-icon purple">💹</div>
+        <div class="stat-icon purple">${ico('monitoring')}</div>
         <div class="stat-label">Estimasi Untung Jika Terjual Semua</div>
         <div class="stat-value">${fmt(totalUntung)}</div>
       </div>
@@ -2256,7 +2260,7 @@ function renderStok() {
             <option value="modal-tertinggi">Urutkan: Nilai Modal Tertinggi</option>
           </select>
           <div class="search-bar">
-            <span>🔍</span>
+            ${ico('search')}
             <input type="text" id="search-stok" placeholder="Cari barang..." />
           </div>
         </div>
@@ -2279,7 +2283,7 @@ function renderStok() {
           </thead>
           <tbody id="tbody-stok">
             ${items.length ? sortStokItems(items, 'nama').map(stokRowHtml).join('') : `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-muted)">
-              <div class="empty-state-icon">📭</div>
+              <div class="empty-state-icon">${ico('inbox')}</div>
               <div class="empty-state-title">Stok kosong</div>
               <div class="empty-state-sub">Tambahkan data di menu Barang Masuk</div>
             </td></tr>`}
@@ -2386,18 +2390,18 @@ function renderLaporan() {
     if (!laporanDiv) return;
 
     laporanDiv.innerHTML = `
-      <div class="profit-card" style="margin-bottom:8px; background: var(--bg-card); border-left: 4px solid ${labaPos ? 'var(--green)' : 'var(--red)'}">
+      <div class="profit-card plain ${labaPos ? 'is-profit' : 'is-loss'}" style="margin-bottom:8px;">
         <div class="profit-card-left">
-          <h3 style="color:var(--text-secondary)">Estimasi ${labaPos ? 'Keuntungan' : 'Kerugian'} Bulan ${MONTHS[m]} ${y}</h3>
-          <div class="big-val" style="color: ${labaPos ? 'var(--green)' : 'var(--red)'}">${fmt(Math.abs(lp.labaBersih))}</div>
+          <h3>Estimasi ${labaPos ? 'Keuntungan' : 'Kerugian'} Bulan ${MONTHS[m]} ${y}</h3>
+          <div class="big-val">${fmt(Math.abs(lp.labaBersih))}</div>
         </div>
-        <div class="profit-icon">${labaPos ? '📈' : '📉'}</div>
+        <div class="profit-icon">${labaPos ? ico('trending_up',44) : ico('trending_down',44)}</div>
       </div>
 
       <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
           <div>
-            <div class="card-title">🔎 Rincian Penyebab Untung / Rugi</div>
+            <div class="card-title">${ico('search_insights')} Rincian Penyebab Untung / Rugi</div>
             <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Semua sumber pendapatan & pengeluaran bulan ${MONTHS[m]} ${y}, diurutkan dari yang paling besar pengaruhnya</div>
           </div>
         </div>
@@ -2409,7 +2413,7 @@ function renderLaporan() {
                 if (!rincian.length) return `<tr><td style="padding:20px;text-align:center;color:var(--text-muted)">Tidak ada transaksi bulan ini</td></tr>`;
                 return rincian.map(r => `
                   <tr>
-                    <td style="width:24px;">${r.amount >= 0 ? '🟢' : '🔴'}</td>
+                    <td style="width:24px;">${r.amount >= 0 ? '<span style=\"color:var(--green-bright)\">&#9679;</span>' : '<span style=\"color:var(--red-bright)\">&#9679;</span>'}</td>
                     <td class="primary">${r.label} <span style="color:var(--text-muted); font-weight:400;">(${r.amount >= 0 ? 'penambah untung' : 'penyebab rugi'})</span></td>
                     <td class="${r.amount >= 0 ? 'amount-positive' : 'amount-negative'}" style="text-align:right; font-weight:700;">${r.amount >= 0 ? '' : '-'}${fmt(Math.abs(r.amount))}</td>
                   </tr>`).join('');
@@ -2429,7 +2433,7 @@ function renderLaporan() {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">📊 Laporan Laba / Rugi</div>
+              <div class="card-title">${ico('bar_chart')} Laporan Laba / Rugi</div>
               <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Uang yang benar-benar masuk & keluar selama bulan ${MONTHS[m]} ${y}</div>
             </div>
           </div>
@@ -2455,7 +2459,7 @@ function renderLaporan() {
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="card-title">📒 Utang & Piutang</div>
+              <div class="card-title">${ico('menu_book')} Utang & Piutang</div>
               <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Catatan baru bulan ${MONTHS[m]} ${y}, dan sisa saldo yang belum lunas sampai sekarang</div>
             </div>
           </div>
@@ -2524,7 +2528,7 @@ function renderLaporan() {
     <div class="card">
       <div class="card-header">
         <div>
-          <div class="card-title">📉 Grafik Untung / Rugi per Bulan</div>
+          <div class="card-title">${ico('show_chart')} Grafik Untung / Rugi per Bulan</div>
           <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Klik salah satu batang untuk melihat rincian bulan tersebut. Hijau = untung, merah = rugi.</div>
         </div>
       </div>
@@ -2572,7 +2576,7 @@ function renderLaporan() {
   <div class="page-anim">
     <div class="page-header" style="align-items:center;">
       <div>
-        <div class="page-title">📈 Laporan Keuangan</div>
+        <div class="page-title">${ico('analytics',26)} Laporan Keuangan</div>
         <div class="page-subtitle">Ringkasan kondisi keuangan toko</div>
       </div>
       <div class="filter-bar" style="display:flex; align-items:center; gap:8px;">
