@@ -397,7 +397,41 @@ function refreshTableBody(key) {
   renderTableBody(key, searchInput ? searchInput.value.toLowerCase().trim() : '');
 }
 
-function navigate(page, ruteId = null) {
+/* ========================
+   NAVIGATION HISTORY (tombol Kembali)
+   ======================== */
+let navDepth = 0;
+
+function updateBackButton() {
+  const btn = document.getElementById('btn-global-back');
+  if (btn) btn.disabled = navDepth <= 0;
+}
+
+function pushNavState(state, opts = {}) {
+  if (opts.fromHistory) return;
+  if (opts.replace) {
+    history.replaceState(state, '', '');
+  } else {
+    navDepth++;
+    history.pushState(state, '', '');
+  }
+  updateBackButton();
+}
+
+window.addEventListener('popstate', (e) => {
+  navDepth = Math.max(0, navDepth - 1);
+  updateBackButton();
+  const state = e.state;
+  if (!state || state.type === 'page') {
+    navigate(state ? state.page : 'dashboard', state ? state.ruteId : null, { fromHistory: true });
+  } else if (state.type === 'pjMenu') {
+    openPerjalananMenu(state.ruteId, state.perjalananId, { fromHistory: true });
+  } else if (state.type === 'pjCategory') {
+    openPerjalananCategory(state.ruteId, state.perjalananId, state.key, { fromHistory: true });
+  }
+});
+
+function navigate(page, ruteId = null, opts = {}) {
   currentPage = page;
   currentRuteId = ruteId;
   currentPerjalananId = null;
@@ -417,15 +451,17 @@ function navigate(page, ruteId = null) {
     if (r) title += ` - ${r.nama}`;
   }
   document.getElementById('topbar-title').textContent = title;
-  
+
   const content = document.getElementById('content');
   content.innerHTML = '';
-  
+
   const fn = pageMap[page];
   if (fn) fn();
-  
+
   // close sidebar on mobile
   document.getElementById('sidebar').classList.remove('open');
+
+  pushNavState({ type: 'page', page, ruteId }, opts);
 }
 
 function renderRuteSidebar() {
@@ -1105,7 +1141,7 @@ const PERJALANAN_SECTIONS = [
   },
 ];
 
-function openPerjalananMenu(ruteId, perjalananId) {
+function openPerjalananMenu(ruteId, perjalananId, opts = {}) {
   currentPage = 'perjalanan-list';
   currentRuteId = ruteId;
   currentPerjalananId = perjalananId;
@@ -1118,6 +1154,7 @@ function openPerjalananMenu(ruteId, perjalananId) {
     `Perjalanan - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
   renderPerjalananMenu(ruteId, perjalananId);
   document.getElementById('sidebar').classList.remove('open');
+  pushNavState({ type: 'pjMenu', ruteId, perjalananId }, opts);
 }
 
 function renderPerjalananMenu(ruteId, perjalananId) {
@@ -1174,12 +1211,13 @@ function renderPerjalananMenu(ruteId, perjalananId) {
 
   document.getElementById('pj-back-link').addEventListener('click', (e) => {
     e.preventDefault();
+    if (navDepth > 0) { history.back(); return; }
     currentPerjalananId = null;
     renderPerjalananList(ruteId);
   });
 }
 
-function openPerjalananCategory(ruteId, perjalananId, key) {
+function openPerjalananCategory(ruteId, perjalananId, key, opts = {}) {
   currentRuteId = ruteId;
   currentPerjalananId = perjalananId;
   const rute = store.ruteList.find(x => x.id === ruteId);
@@ -1188,6 +1226,7 @@ function openPerjalananCategory(ruteId, perjalananId, key) {
   document.getElementById('topbar-title').textContent =
     `${sec.title} - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
   renderPerjalananCategoryPage(ruteId, perjalananId, key);
+  pushNavState({ type: 'pjCategory', ruteId, perjalananId, key }, opts);
 }
 
 function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
@@ -1241,6 +1280,7 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
 
   document.getElementById('pj-cat-back-link').addEventListener('click', (e) => {
     e.preventDefault();
+    if (navDepth > 0) { history.back(); return; }
     openPerjalananMenu(ruteId, perjalananId);
   });
   document.getElementById(`btn-add-pj-${key}`).addEventListener('click', () => openAddModal(key));
@@ -2636,4 +2676,7 @@ function renderLaporan() {
    ======================== */
 updateDate();
 renderRuteSidebar();
-navigate('dashboard');
+navigate('dashboard', null, { replace: true });
+document.getElementById('btn-global-back').addEventListener('click', () => {
+  if (navDepth > 0) history.back();
+});
