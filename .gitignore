@@ -3,3 +3,9 @@ node_modules/
 .claude/
 DOKUMENTASI-FITUR.md
 stitch_simple_markdown_ui/
+
+# Kredensial database — JANGAN pernah masuk ke repositori
+api/config.php
+
+# Database uji coba lokal
+data/

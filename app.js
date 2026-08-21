@@ -13,6 +13,17 @@ const fmtNum = (n) => Number(n || 0).toLocaleString('id-ID');
 /* Material Symbols icon helper */
 const ico = (name, size) =>
   `<span class="material-symbols-outlined"${size ? ` style="font-size:${size}px"` : ''}>${name}</span>`;
+
+/* Amankan teks dari pengguna sebelum disisipkan ke HTML.
+   Tanpa ini, nama barang/toko yang berisi tag HTML bisa dieksekusi
+   sebagai skrip (XSS) — berbahaya begitu data dipakai bersama di hosting. */
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function escapeHtml(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/[&<>"']/g, (c) => ESC_MAP[c]);
+}
+/* alias pendek supaya template tetap enak dibaca */
+const e = escapeHtml;
 const fmtShort = (n) => {
   n = Number(n || 0);
   if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'jt';
@@ -75,27 +86,82 @@ function toggleLunas(key, id) {
    ======================== */
 const STORE_KEY = 'toko_panglima_v5';
 
-function loadStore() {
+/* Mode penyimpanan:
+   'server' = tersimpan di database hosting (mode sesungguhnya)
+   'lokal'  = fallback ke browser, dipakai saat mencoba tampilan tanpa PHP  */
+let storageMode = 'server';
+let csrfToken   = '';
+
+function loadStoreLokal() {
   let s = null;
-  try {
-    s = JSON.parse(localStorage.getItem(STORE_KEY));
-  } catch(e) {}
-  if (!s) s = defaultStore();
-  
-  // Backwards compatibility injections
-  if (!s.ruteList) {
-    s.ruteList = [{ id: 'rute-default', nama: 'Rute Luar Kota' }];
-    // Migrate existing rute data to this default rute
-    ['barangTerjual','rekapPiutang','tagihan','uangKeluarLK','uangMasuk'].forEach(key => {
-      if (s[key]) s[key].forEach(item => { if(!item.ruteId) item.ruteId = 'rute-default'; });
-    });
-    saveStore(); // Save migration
-  }
-  return s;
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) {}
+  return s || defaultStore();
 }
 
+function saveStoreLokal() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+}
+
+/* ── Simpan ke server (ditunda sesaat supaya beberapa perubahan
+      beruntun cukup satu kali kirim) ── */
+let _saveTimer = null;
+let _savePending = false;
+
 function saveStore() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(store));
+  if (storageMode === 'lokal') { saveStoreLokal(); return; }
+  _savePending = true;
+  setSaveStatus('menyimpan');
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(kirimKeServer, 400);
+}
+
+async function kirimKeServer() {
+  if (!_savePending) return;
+  _savePending = false;
+  try {
+    const res = await fetch('api/save.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      credentials: 'same-origin',
+      body: JSON.stringify({ store }),
+    });
+    if (res.status === 401) { window.location.replace('login.html'); return; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal menyimpan.');
+    setSaveStatus('tersimpan');
+  } catch (err) {
+    setSaveStatus('gagal');
+    showToast('Gagal menyimpan ke server. Perubahan terakhir belum tersimpan.', 'error');
+  }
+}
+
+/* Peringatan kalau menutup tab saat masih ada yang belum tersimpan */
+window.addEventListener('beforeunload', (e) => {
+  if (_savePending || saveStatusEl?.dataset.state === 'menyimpan') {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+let saveStatusEl = null;
+function setSaveStatus(state) {
+  saveStatusEl = saveStatusEl || document.getElementById('save-status');
+  if (!saveStatusEl) return;
+  saveStatusEl.dataset.state = state;
+  const map = {
+    menyimpan: ['sync', 'Menyimpan…'],
+    tersimpan: ['cloud_done', 'Tersimpan'],
+    gagal:     ['cloud_off', 'Gagal simpan'],
+    lokal:     ['warning', 'Mode demo — data hanya di browser ini'],
+  };
+  const [icon, text] = map[state] || map.tersimpan;
+  saveStatusEl.innerHTML = `${ico(icon, 16)}<span>${escapeHtml(text)}</span>`;
+  if (state === 'tersimpan') {
+    clearTimeout(saveStatusEl._t);
+    saveStatusEl._t = setTimeout(() => {
+      if (saveStatusEl.dataset.state === 'tersimpan') saveStatusEl.dataset.state = 'idle';
+    }, 2200);
+  }
 }
 
 function defaultStore() {
@@ -119,7 +185,9 @@ function defaultStore() {
   };
 }
 
-let store = loadStore();
+/* Diisi saat aplikasi mulai — dari database (mode server)
+   atau dari browser (mode demo tanpa PHP). */
+let store = defaultStore();
 
 /* seed sample data if empty */
 function seedData() {
@@ -160,15 +228,15 @@ function seedData() {
     { id: uid(), tanggal: '2026-08-07', nama: 'Bu Wati',    keterangan: 'Beli cat samurai kredit', jumlah: 550000, status: 'Belum Lunas' },
   ];
   store.uangKeluar = [
-    { id: uid(), tanggal: '2026-05-10', keterangan: 'Bayar listrik toko',   jumlah: 400000 },
-    { id: uid(), tanggal: '2026-05-13', keterangan: 'Gaji karyawan bulan Mei',    jumlah: 3000000 },
-    { id: uid(), tanggal: '2026-06-09', keterangan: 'Bayar listrik toko',   jumlah: 420000 },
-    { id: uid(), tanggal: '2026-06-13', keterangan: 'Gaji karyawan bulan Juni',   jumlah: 3000000 },
-    { id: uid(), tanggal: '2026-07-10', keterangan: 'Bayar listrik toko',   jumlah: 430000 },
-    { id: uid(), tanggal: '2026-07-13', keterangan: 'Gaji karyawan bulan Juli',   jumlah: 3000000 },
-    { id: uid(), tanggal: '2026-07-22', keterangan: 'Servis motor pengiriman', jumlah: 350000 },
-    { id: uid(), tanggal: '2026-08-11', keterangan: 'Bayar listrik toko',   jumlah: 450000 },
-    { id: uid(), tanggal: '2026-08-13', keterangan: 'Gaji karyawan bulan Agustus', jumlah: 3000000 },
+    { id: uid(), perjalananId: 'pd-2026-05', tanggal: '2026-05-10', keterangan: 'Bayar listrik toko',   jumlah: 400000 },
+    { id: uid(), perjalananId: 'pd-2026-05', tanggal: '2026-05-13', keterangan: 'Gaji karyawan bulan Mei',    jumlah: 3000000 },
+    { id: uid(), perjalananId: 'pd-2026-06', tanggal: '2026-06-09', keterangan: 'Bayar listrik toko',   jumlah: 420000 },
+    { id: uid(), perjalananId: 'pd-2026-06', tanggal: '2026-06-13', keterangan: 'Gaji karyawan bulan Juni',   jumlah: 3000000 },
+    { id: uid(), perjalananId: 'pd-2026-07', tanggal: '2026-07-10', keterangan: 'Bayar listrik toko',   jumlah: 430000 },
+    { id: uid(), perjalananId: 'pd-2026-07', tanggal: '2026-07-13', keterangan: 'Gaji karyawan bulan Juli',   jumlah: 3000000 },
+    { id: uid(), perjalananId: 'pd-2026-07', tanggal: '2026-07-22', keterangan: 'Servis motor pengiriman', jumlah: 350000 },
+    { id: uid(), perjalananId: 'pd-2026-08', tanggal: '2026-08-11', keterangan: 'Bayar listrik toko',   jumlah: 450000 },
+    { id: uid(), perjalananId: 'pd-2026-08', tanggal: '2026-08-13', keterangan: 'Gaji karyawan bulan Agustus', jumlah: 3000000 },
   ];
   store.barangTerjual = [
     // BENGKULU
@@ -201,6 +269,11 @@ function seedData() {
     { id: uid(), ruteId: 'rute-medan', perjalananId: 'pj-medan-4', noFaktur: '0816', tanggal: '2026-08-20', pelanggan: 'Sari Bumi',         nama: 'Sendok Semen Rush', jumlah: 2, satuan: 'Lusin', hargaJual: 260000 },
   ];
   store.perjalananList = [
+    // Periode Toko Utama (tanpa ruteId) — mengelompokkan Uang Keluar
+    { id: 'pd-2026-05', tanggalMulai: '2026-05-01', tanggalSelesai: '2026-05-31' },
+    { id: 'pd-2026-06', tanggalMulai: '2026-06-01', tanggalSelesai: '2026-06-30' },
+    { id: 'pd-2026-07', tanggalMulai: '2026-07-01', tanggalSelesai: '2026-07-31' },
+    { id: 'pd-2026-08', tanggalMulai: '2026-08-01', tanggalSelesai: '2026-08-31' },
     { id: 'pj-bengkulu-1', ruteId: 'rute-bengkulu', tanggalMulai: '2026-05-13', tanggalSelesai: '2026-05-18' },
     { id: 'pj-bengkulu-2', ruteId: 'rute-bengkulu', tanggalMulai: '2026-06-14', tanggalSelesai: '2026-06-24' },
     { id: 'pj-bengkulu-3', ruteId: 'rute-bengkulu', tanggalMulai: '2026-07-15', tanggalSelesai: '2026-07-18' },
@@ -299,7 +372,6 @@ function seedData() {
   ];
   saveStore();
 }
-seedData();
 
 /* ========================
    ROUTER
@@ -309,7 +381,8 @@ const pageMap = {
   'barang-masuk':    () => renderList('barangMasuk'),
   'utang':           () => renderList('utang'),
   'piutang':         () => renderList('piutang'),
-  'uang-keluar':     () => renderList('uangKeluar'),
+  'uang-keluar':       () => renderCategoryTripList(null, 'uangKeluar'),
+  'uang-keluar-semua': () => renderList('uangKeluar'),
   'barang-terjual':  () => renderList('barangTerjual'),
   'rekap-piutang':   () => renderList('rekapPiutang'),
   'tagihan':         () => renderList('tagihan'),
@@ -322,6 +395,7 @@ const pageMap = {
   'pj-uang-masuk':     () => renderCategoryTripList(currentRuteId, 'uangMasuk'),
   'stok-toko':       renderStok,
   'laporan-keuangan':renderLaporan,
+  'penjelasan-laporan': renderPenjelasanLaporan,
   'pengaturan-rute': () => renderList('ruteList'),
 };
 
@@ -330,7 +404,8 @@ const pageTitles = {
   'barang-masuk':    'Barang Masuk',
   'utang':           'Utang',
   'piutang':         'Piutang',
-  'uang-keluar':     'Uang Keluar',
+  'uang-keluar':       'Uang Keluar',
+  'uang-keluar-semua': 'Uang Keluar (Semua Data)',
   'barang-terjual':  'Barang Terjual (Rute)',
   'rekap-piutang':   'Rekap Piutang (Rute)',
   'tagihan':         'Tagihan (Rute)',
@@ -343,6 +418,7 @@ const pageTitles = {
   'pj-uang-masuk':     'Uang Masuk',
   'stok-toko':       'Stok Toko',
   'laporan-keuangan':'Laporan Keuangan',
+  'penjelasan-laporan': 'Penjelasan Laporan Keuangan',
   'pengaturan-rute': 'Manajemen Rute',
 };
 
@@ -457,7 +533,7 @@ function navigate(page, ruteId = null, opts = {}) {
   let title = pageTitles[page] || page;
   if (ruteId) {
     const r = store.ruteList.find(x => x.id === ruteId);
-    if (r) title += ` - ${r.nama}`;
+    if (r) title += ` - ${e(r.nama)}`;
   }
   document.getElementById('topbar-title').textContent = title;
 
@@ -467,8 +543,17 @@ function navigate(page, ruteId = null, opts = {}) {
   const fn = pageMap[page];
   if (fn) fn();
 
+  // kata kunci bawaan dari pencarian global
+  if (opts.cari) {
+    const kotak = content.querySelector('#search-stok, .search-bar input');
+    if (kotak) {
+      kotak.value = opts.cari;
+      kotak.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+
   // close sidebar on mobile
-  document.getElementById('sidebar').classList.remove('open');
+  setSidebar(false);
 
   pushNavState({ type: 'page', page, ruteId }, opts);
 }
@@ -481,7 +566,7 @@ function renderRuteSidebar() {
   store.ruteList.forEach(rute => {
     html += `
       <div class="nav-section-label collapsible" onclick="toggleSubmenu('submenu-rute-${rute.id}')">
-        <span style="display:flex;align-items:center;gap:7px;">${ico('local_shipping', 17)}${rute.nama}</span>
+        <span style="display:flex;align-items:center;gap:7px;">${ico('local_shipping', 17)}${e(rute.nama)}</span>
         <span class="chevron" id="chevron-rute-${rute.id}">▼</span>
       </div>
       <div class="submenu" id="submenu-rute-${rute.id}">
@@ -518,8 +603,52 @@ function updateDate() {
 /* ========================
    SIDEBAR TOGGLE (mobile)
    ======================== */
+function setSidebar(open) {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebar-backdrop');
+  sb.classList.toggle('open', open);
+  if (bd) {
+    bd.hidden = !open;
+    // beri jeda satu frame supaya transisi opacity sempat berjalan
+    if (open) requestAnimationFrame(() => bd.classList.add('show'));
+    else bd.classList.remove('show');
+  }
+  // kunci gulir halaman di belakang menu
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+
 document.getElementById('sidebar-toggle').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.toggle('open');
+  setSidebar(!document.getElementById('sidebar').classList.contains('open'));
+});
+
+document.getElementById('sidebar-backdrop')?.addEventListener('click', () => setSidebar(false));
+
+// Esc menutup menu
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && document.getElementById('sidebar').classList.contains('open')) {
+    setSidebar(false);
+  }
+});
+
+// kalau layar dilebarkan kembali, pastikan status menu bersih
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 1024) setSidebar(false);
+});
+
+/* Ukuran kanvas grafik berbeda antara layar sempit dan lebar,
+   jadi Dashboard digambar ulang saat melewati ambang itu
+   (mis. ponsel diputar ke posisi mendatar). */
+let _sempitTerakhir = window.innerWidth <= 700;
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    const sempit = window.innerWidth <= 700;
+    if (sempit !== _sempitTerakhir) {
+      _sempitTerakhir = sempit;
+      if (currentPage === 'dashboard') renderDashboard();
+    }
+  }, 200);
 });
 
 /* ========================
@@ -588,230 +717,283 @@ function filterCurrentMonth(arr, field = 'tanggal') {
   });
 }
 
-function getStokToko() {
-  const map = {};
-  store.barangMasuk.forEach(b => {
-    const key = b.nama;
-    if (!map[key]) {
-      const jml1 = Number(b.jumlah1 || b.jumlah || 1);
-      const jml2 = Number(b.jumlah2 || b.jumlah || 1);
-      const konversi = Math.max(1, Math.floor(jml2 / jml1));
-      map[key] = {
-        nama: b.nama,
-        satuan1: b.satuan1 || b.satuan,
-        satuan2: b.satuan2 || b.satuan,
-        konversi: konversi,
-        stokKecil: 0,
-        hargaModal: b.hargaModal || 0,
-        hargaJual1: b.hargaJual1 || b.hargaJual || 0,
-        hargaJual2: b.hargaJual2 || b.hargaJual || 0
-      };
-    }
-    map[key].stokKecil += Number(b.jumlah2 || b.jumlah || 0);
-    map[key].hargaModal = b.hargaModal || 0; // use latest
-    map[key].hargaJual1 = b.hargaJual1 || b.hargaJual || 0;
-    map[key].hargaJual2 = b.hargaJual2 || b.hargaJual || 0;
-  });
-
-  store.barangTerjual.forEach(b => {
-    const key = b.nama;
-    if (map[key]) {
-      if (b.satuan === map[key].satuan1 && map[key].satuan1 !== map[key].satuan2) {
-        map[key].stokKecil -= Number(b.jumlah || 0) * map[key].konversi;
-      } else {
-        map[key].stokKecil -= Number(b.jumlah || 0);
-      }
-    }
-  });
-
-  const items = Object.values(map).sort((a, b) =>
-    a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' })
-  );
-
-  const totalModal = items.reduce((s,x) => s + (x.stokKecil / x.konversi) * x.hargaModal, 0);
-  const totalJual = items.reduce((s,x) => s + (x.stokKecil / x.konversi) * (x.hargaJual2 || x.hargaJual1), 0);
-  
-  return { items, totalModal, totalJual };
-}
-
 /* ========================
    DASHBOARD
    ======================== */
+
+/* Sparkline putih untuk kartu utama untung/rugi — tanpa sumbu, murni bentuk tren. */
+function sparklineLaba(data, w = 300, h = 92) {
+  if (data.length < 2) return '';
+  const pad = 8;
+  const vals = data.map(d => d.laba);
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const span = Math.max(max - min, 1);
+  const xOf = i => pad + (i / (data.length - 1)) * (w - pad * 2);
+  const yOf = v => h - pad - ((v - min) / span) * (h - pad * 2);
+  const pts = data.map((d, i) => [xOf(i), yOf(d.laba)]);
+
+  /* kurva halus supaya garisnya tidak patah-patah */
+  let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    const cx = (x0 + x1) / 2;
+    d += ` C${cx.toFixed(1)} ${y0.toFixed(1)} ${cx.toFixed(1)} ${y1.toFixed(1)} ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  const area = `${d} L${pts[pts.length - 1][0].toFixed(1)} ${h} L${pts[0][0].toFixed(1)} ${h} Z`;
+  const uidSp = 'sp' + Math.random().toString(36).slice(2, 7);
+  const lx = pts[pts.length - 1][0], ly = pts[pts.length - 1][1];
+
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Tren untung rugi beberapa bulan terakhir">
+    <defs>
+      <linearGradient id="${uidSp}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.28)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#${uidSp})" />
+    <path d="${d}" fill="none" stroke="rgba(255,255,255,.95)" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="#fff" />
+  </svg>`;
+}
+
+/* "Masuk hari ini" / "3 hari lalu" — lebih mudah dibaca daripada tanggal penuh */
+function jarakHari(iso) {
+  if (!iso) return '';
+  const a = new Date(iso + 'T00:00:00');
+  const b = new Date(today() + 'T00:00:00');
+  const hari = Math.round((b - a) / 86400000);
+  if (hari <= 0) return 'Masuk hari ini';
+  if (hari === 1) return 'Kemarin';
+  if (hari < 30) return hari + ' hari lalu';
+  return formatDate(iso);
+}
+
+/* Warna kotak inisial — tetap sama untuk nama yang sama */
+const WARNA_INISIAL = ['#0F172A', '#0D9488', '#2563EB', '#7C3AED', '#B45309', '#BE123C'];
+function warnaInisial(nama) {
+  let n = 0;
+  for (let i = 0; i < (nama || '').length; i++) n = (n + nama.charCodeAt(i)) % 997;
+  return WARNA_INISIAL[n % WARNA_INISIAL.length];
+}
+function inisialDari(nama) {
+  return (nama || '?').split(/\s+/).filter(Boolean).slice(0, 2)
+    .map(x => x[0].toUpperCase()).join('') || '?';
+}
+
+function persenBeda(sekarang, sebelum) {
+  if (!sebelum) return null;
+  return ((sekarang - sebelum) / Math.abs(sebelum)) * 100;
+}
+function chipDelta(persen, naikItuBaik = true) {
+  if (persen === null || !isFinite(persen)) {
+    return `<div class="nx-kpi-delta">Belum ada pembanding bulan lalu</div>`;
+  }
+  const naik = persen >= 0;
+  const baik = naik === naikItuBaik;
+  return `<div class="nx-kpi-delta ${baik ? 'naik' : 'turun'}">
+    ${ico(naik ? 'arrow_upward' : 'arrow_downward', 15)}${Math.abs(persen).toFixed(1)}% vs bulan lalu
+  </div>`;
+}
+
 function renderDashboard() {
   const stok = getStokToko();
+  const now  = new Date();
+  const m = now.getMonth(), y = now.getFullYear();
+  const pm = m === 0 ? 11 : m - 1, py = m === 0 ? y - 1 : y;
 
-  const lowStocks = stok.items
+  const lp   = buildLaporan(m, y);
+  const lalu = buildLaporan(pm, py);
+
+  const uangKeluarTotal     = lp.uangKeluarUtama + lp.uangKeluarLK;
+  const uangKeluarTotalLalu = lalu.uangKeluarUtama + lalu.uangKeluarLK;
+
+  const labaPos = lp.labaBersih >= 0;
+  const seri = seriesLabaBulanan();
+
+  /* Rute yang menyumbang penjualan bulan ini */
+  const ruteAktif = [...new Set(
+    store.barangTerjual
+      .filter(b => { const g = getMonthYear(b.tanggal); return g.m === m && g.y === y; })
+      .map(b => (store.ruteList.find(r => r.id === b.ruteId) || {}).nama)
+      .filter(Boolean)
+  )];
+
+  const piutangBelum = [
+    ...store.piutang.filter(x => x.status !== 'Lunas'),
+    ...store.rekapPiutang.filter(x => x.status !== 'Lunas'),
+  ];
+  const utangBelum = store.utang.filter(x => x.status !== 'Lunas');
+
+  /* Peringatan */
+  const stokMenipis = stok.items
     .filter(x => x.stokKecil <= 5)
-    .map(x => ({ 
-      nama: x.nama, 
-      sisa: x.stokKecil, 
-      sisaTxt: formatStock(x.stokKecil, x.konversi, x.satuan1, x.satuan2) 
-    }));
+    .sort((a, b) => a.stokKecil - b.stokKecil)
+    .slice(0, 4)
+    .map(x => ({ nama: x.nama, sisa: x.stokKecil, txt: formatStock(x.stokKecil, x.konversi, x.satuan1, x.satuan2) }));
 
-  // totals (all time for cards, current month for report)
-  const cur = {
-    uangMasuk:     sumField(filterCurrentMonth(store.uangMasuk), 'jumlah') +
-                   sumField(filterCurrentMonth(store.barangTerjual).map(b => ({ j: b.jumlah * b.hargaJual })), 'j'),
-    uangKeluar:    sumField(filterCurrentMonth(store.uangKeluar), 'jumlah') +
-                   sumField(filterCurrentMonth(store.uangKeluarLK), 'jumlah'),
-    belanjaBarang: filterCurrentMonth(store.barangMasuk).reduce((s, b) => s + Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0), 0),
-    piutang:       sumField(store.piutang.filter(x => x.status !== 'Lunas'), 'jumlah') +
-                   sumField(store.rekapPiutang.filter(x => x.status !== 'Lunas'), 'jumlah'),
-    utang:         sumField(store.utang.filter(x => x.status !== 'Lunas'), 'jumlah'),
-    penjualan:     sumField(filterCurrentMonth(store.barangTerjual).map(b => ({ j: b.jumlah * b.hargaJual })), 'j'),
-    stokNilai:     stok.totalModal,
-  };
-  const laba = cur.uangMasuk - cur.uangKeluar - cur.belanjaBarang;
-  const labaPos = laba >= 0;
+  const batas30 = new Date(); batas30.setDate(batas30.getDate() - 30);
+  const utangTempo = utangBelum
+    .filter(u => new Date(u.tanggal) <= batas30)
+    .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+    .slice(0, 3);
 
-  // Cek Utang Jatuh Tempo (Asumsi 30 Hari)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const utangOverdue = store.utang.filter(u => u.status !== 'Lunas' && new Date(u.tanggal) <= thirtyDaysAgo);
-
-  let alertsHtml = '';
-  if (lowStocks.length > 0) {
-    alertsHtml += `
-      <div style="background: var(--bg-card); border-left: 4px solid var(--red); padding: 16px; border-radius: 8px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start;">
-        <div style="font-size:24px;color:var(--red);display:flex;">${ico('warning',26)}</div>
-        <div>
-          <h4 style="color: var(--text-primary); margin: 0 0 8px 0;">Peringatan Stok Habis / Menipis</h4>
-          <ul style="margin:0; padding-left:20px; color:var(--text-secondary); font-size:14px;">
-            ${lowStocks.map(s => `<li style="color:${s.sisa <= 0 ? 'var(--red)' : 'var(--orange)'}">${s.nama}: <strong>${s.sisaTxt}</strong> ${s.sisa <= 0 ? '(HABIS)' : '(Sisa Sedikit)'}</li>`).join('')}
-          </ul>
-        </div>
-      </div>
-    `;
-  }
-  
-  if (utangOverdue.length > 0) {
-    alertsHtml += `
-      <div style="background: var(--bg-card); border-left: 4px solid var(--orange); padding: 16px; border-radius: 8px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start;">
-        <div style="font-size:24px;color:var(--amber);display:flex;">${ico('notifications_active',26)}</div>
-        <div>
-          <h4 style="color: var(--text-primary); margin: 0 0 8px 0;">Peringatan Utang Jatuh Tempo (>30 Hari)</h4>
-          <ul style="margin:0; padding-left:20px; color:var(--text-secondary); font-size:14px;">
-            ${utangOverdue.map(u => `<li>${formatDate(u.tanggal)} - ${u.keterangan}: <strong class="amount-negative">${fmt(u.jumlah)}</strong></li>`).join('')}
-          </ul>
-        </div>
-      </div>
-    `;
-  }
+  const barangTerbaru = store.barangMasuk.slice().sort((a, b) => b.tanggal.localeCompare(a.tanggal)).slice(0, 5);
+  const piutangTerbesar = piutangBelum.slice().sort((a, b) => Number(b.jumlah) - Number(a.jumlah)).slice(0, 4);
 
   const html = `
   <div class="page-anim">
     <div class="page-header">
       <div>
         <div class="page-title">Dashboard</div>
-        <div class="page-subtitle"><span class="live-dot"></span>Ringkasan kondisi toko bulan ini</div>
-      </div>
-    </div>
-    
-    ${alertsHtml}
-
-    <div class="profit-card">
-      <div class="profit-card-left">
-        <h3>Estimasi ${labaPos ? 'Keuntungan' : 'Kerugian'} Bulan Ini</h3>
-        <div class="big-val">${fmt(Math.abs(laba))}</div>
-      </div>
-      <div class="profit-icon">${labaPos ? ico('trending_up',44) : ico('trending_down',44)}</div>
-    </div>
-
-    <div class="stats-grid">
-      <div class="stat-card green">
-        <div class="stat-icon green">${ico('trending_up')}</div>
-        <div class="stat-label">Uang Masuk (Bulan Ini)</div>
-        <div class="stat-value">${fmt(cur.uangMasuk)}</div>
-      </div>
-      <div class="stat-card red">
-        <div class="stat-icon red">${ico('trending_down')}</div>
-        <div class="stat-label">Uang Keluar (Bulan Ini)</div>
-        <div class="stat-value">${fmt(cur.uangKeluar)}</div>
-      </div>
-      <div class="stat-card blue">
-        <div class="stat-icon blue">${ico('local_shipping')}</div>
-        <div class="stat-label">Penjualan Luar Kota</div>
-        <div class="stat-value">${fmt(cur.penjualan)}</div>
-      </div>
-      <div class="stat-card yellow">
-        <div class="stat-icon yellow">${ico('credit_card')}</div>
-        <div class="stat-label">Total Piutang Aktif</div>
-        <div class="stat-value">${fmt(cur.piutang)}</div>
-      </div>
-      <div class="stat-card red">
-        <div class="stat-icon red">${ico('assignment')}</div>
-        <div class="stat-label">Total Utang</div>
-        <div class="stat-value">${fmt(cur.utang)}</div>
-      </div>
-      <div class="stat-card purple">
-        <div class="stat-icon purple">${ico('shelves')}</div>
-        <div class="stat-label">Nilai Stok Toko</div>
-        <div class="stat-value">${fmt(cur.stokNilai)}</div>
+        <div class="page-subtitle"><span class="live-dot"></span>Ringkasan kondisi toko bulan ${MONTHS[m]} ${y}</div>
       </div>
     </div>
 
-    <div class="dashboard-grid">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">${ico('inventory_2')} Stok Barang (Real-Time)</div>
+    <!-- Tiga angka utama bulan berjalan -->
+    <div class="nx-kpi-grid">
+      <div class="nx-kpi is-masuk">
+        <div class="nx-kpi-top">
+          <span class="nx-kpi-judul">${ico('trending_up',19)} Uang Masuk</span>
+          <span class="nx-chip">Bulan Ini</span>
         </div>
-        <div class="recent-list">
-          ${(function() {
-            const recentNames = [...new Set(store.barangMasuk.slice().reverse().map(b => b.nama))].slice(0, 5);
-            const recentItems = recentNames.map(name => stok.items.find(x => x.nama === name)).filter(Boolean);
-            return recentItems.map(item => {
-              const sisaTxt = formatStock(item.stokKecil, item.konversi, item.satuan1, item.satuan2);
-              return `
-              <div class="recent-item">
-                <div class="recent-item-left">
-                  <span class="recent-item-name">${item.nama}</span>
-                  <span class="recent-item-date">Stok saat ini</span>
-                </div>
-                <span class="badge badge-blue">${sisaTxt}</span>
-              </div>
-              `;
-            }).join('') || '<div class="empty-state"><div class="empty-state-sub">Belum ada data</div></div>';
-          })()}
-        </div>
+        <div class="nx-kpi-nilai">${fmt(lp.totalUangMasuk)}</div>
+        ${chipDelta(persenBeda(lp.totalUangMasuk, lalu.totalUangMasuk), true)}
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">${ico('credit_card')} Piutang Aktif</div>
+      <div class="nx-kpi is-keluar">
+        <div class="nx-kpi-top">
+          <span class="nx-kpi-judul">${ico('trending_down',19)} Uang Keluar</span>
+          <span class="nx-chip">Bulan Ini</span>
         </div>
-        <div class="recent-list">
-          ${store.piutang.filter(x => x.status !== 'Lunas').slice(-5).reverse().map(p => `
-            <div class="recent-item">
-              <div class="recent-item-left">
-                <span class="recent-item-name">${p.nama}</span>
-                <span class="recent-item-date">${formatDate(p.tanggal)}</span>
-              </div>
-              <span class="recent-item-amount amount-positive">${fmt(p.jumlah)}</span>
-            </div>
-          `).join('') || '<div class="empty-state"><div class="empty-state-sub">Tidak ada piutang aktif</div></div>'}
+        <div class="nx-kpi-nilai">${fmt(uangKeluarTotal)}</div>
+        ${chipDelta(persenBeda(uangKeluarTotal, uangKeluarTotalLalu), false)}
+      </div>
+
+      <div class="nx-kpi gelap">
+        <div class="nx-kpi-top">
+          <span class="nx-kpi-judul">${ico('local_shipping',19)} Luar Kota</span>
+          <span class="nx-chip">Penjualan</span>
         </div>
+        <div class="nx-kpi-nilai">${fmt(lp.totalPenjualan)}</div>
+        <div class="nx-kpi-delta">${ico('route',15)}${ruteAktif.length ? e(ruteAktif.join(' & ')) : 'Belum ada penjualan rute'}</div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">${ico('payments')} Uang Keluar Terbaru</div>
+    <!-- Tiga angka pendukung -->
+    <div class="nx-mini-grid">
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('credit_card',17)} Total Piutang Aktif</div>
+        <div class="nx-mini-nilai">${fmt(lp.saldoPiutang)}</div>
+        <div class="nx-mini-ket">${piutangBelum.length} catatan belum lunas</div>
       </div>
-      <div class="recent-list">
-        ${[...store.uangKeluar, ...store.uangKeluarLK].sort((a,b)=>b.tanggal.localeCompare(a.tanggal)).slice(0,6).map(k => `
-          <div class="recent-item">
-            <div class="recent-item-left">
-              <span class="recent-item-name">${k.keterangan}</span>
-              <span class="recent-item-date">${formatDate(k.tanggal)}</span>
-            </div>
-            <span class="recent-item-amount amount-negative">-${fmt(k.jumlah)}</span>
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('assignment',17)} Total Utang</div>
+        <div class="nx-mini-nilai">${fmt(lp.saldoUtang)}</div>
+        <div class="nx-mini-ket ${utangBelum.length ? 'perhatian' : ''}">${utangBelum.length} catatan menunggu pembayaran</div>
+      </div>
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('shelves',17)} Nilai Stok Toko</div>
+        <div class="nx-mini-nilai">${fmt(stok.totalModal)}</div>
+        <div class="nx-mini-ket">Berdasarkan harga modal terakhir</div>
+        <div class="nx-mini-hias">${ico('inventory_2',56)}</div>
+      </div>
+    </div>
+
+    <!-- Kolom utama + kolom peringatan -->
+    <div class="nx-dua-kolom">
+      <div>
+        <div class="nx-hero ${labaPos ? '' : 'is-rugi'}">
+          <div class="nx-hero-kiri">
+            <div class="nx-hero-label">Estimasi ${labaPos ? 'Untung' : 'Rugi'}</div>
+            <div class="nx-hero-nilai">${fmt(Math.abs(lp.labaBersih))}</div>
+            <div class="nx-hero-ket">${ico('info',15)}Bulan ${MONTHS[m]} ${y} sampai ${formatDate(today())}, dari transaksi yang sudah tercatat</div>
           </div>
-        `).join('') || '<div class="empty-state"><div class="empty-state-sub">Belum ada data</div></div>'}
+          <div class="nx-hero-grafik">${sparklineLaba(seri.slice(-6))}</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">${ico('inventory_2')} Stok Masuk Terbaru</div>
+            <button class="nx-lihat" onclick="navigate('barang-masuk')">Lihat Semua ${ico('arrow_forward',16)}</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>Supplier</th><th>Qty</th><th style="text-align:right">Total (Rp)</th></tr></thead>
+              <tbody>
+                ${barangTerbaru.length ? barangTerbaru.map(b => {
+                  const qty = Number(b.jumlah1 || b.jumlah || 0);
+                  const sat = e(b.satuan1 || b.satuan || '');
+                  return `<tr>
+                    <td class="primary">${e(b.nama)}<div class="nx-daftar-sub">${e(jarakHari(b.tanggal))}</div></td>
+                    <td>${e(b.supplier || '—')}</td>
+                    <td>${fmtNum(qty)} ${sat}</td>
+                    <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(qty * Number(b.hargaModal || 0))}</td>
+                  </tr>`;
+                }).join('') : `<tr><td colspan="4" style="padding:34px;text-align:center;color:var(--muted)">Belum ada barang masuk</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="nx-alert">
+          <div class="nx-alert-judul">${ico('warning',19)} Perhatian</div>
+
+          <div class="nx-alert-grup">Stok Menipis (&le; 5)</div>
+          ${stokMenipis.length ? stokMenipis.map(s => `
+            <div class="nx-alert-baris">
+              <div style="min-width:0">
+                <div class="nx-alert-nama">${e(s.nama)}</div>
+                ${s.sisa <= 0 ? '<div class="nx-alert-sub">Sudah habis</div>' : ''}
+              </div>
+              <span class="nx-pill-merah">${e(s.txt)}</span>
+            </div>`).join('')
+            : `<div class="nx-alert-aman">${ico('check_circle',18)}Semua stok masih aman</div>`}
+
+          <div class="nx-alert-grup">Utang Lewat 30 Hari</div>
+          ${utangTempo.length ? utangTempo.map(u => `
+            <div class="nx-alert-baris">
+              <div style="min-width:0">
+                <div class="nx-alert-nama">${e(u.keterangan)}</div>
+                <div class="nx-alert-sub">Dicatat ${formatDate(u.tanggal)}</div>
+              </div>
+              <span class="nx-alert-nilai">${fmt(u.jumlah)}</span>
+            </div>`).join('')
+            : `<div class="nx-alert-aman">${ico('check_circle',18)}Tidak ada utang yang tertunda lama</div>`}
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">${ico('credit_card')} Piutang Aktif Terbesar</div>
+          </div>
+          <div class="nx-daftar">
+            ${piutangTerbesar.length ? piutangTerbesar.map(p => {
+              const nama = p.nama || p.keterangan || '—';
+              const rute = p.ruteId ? (store.ruteList.find(r => r.id === p.ruteId) || {}).nama : null;
+              return `<div class="nx-daftar-baris">
+                <span class="nx-inisial" style="background:${warnaInisial(nama)}">${e(inisialDari(nama))}</span>
+                <span class="nx-daftar-teks">
+                  <span class="nx-daftar-nama">${e(nama)}${rute ? ` <span style="color:var(--muted);font-weight:400">(${e(rute)})</span>` : ''}</span>
+                  <span class="nx-daftar-sub">${e(p.noFaktur || formatDate(p.tanggal))}</span>
+                </span>
+                <span class="nx-daftar-kanan">
+                  <span class="nx-daftar-nilai">${fmt(p.jumlah)}</span>
+                  <div><span class="badge badge-yellow">Belum Lunas</span></div>
+                </span>
+              </div>`;
+            }).join('') : `<div class="empty-state"><div class="empty-state-sub">Tidak ada piutang aktif</div></div>`}
+          </div>
+        </div>
       </div>
     </div>
+
+    ${buildGrafikGarisLaba(seri)}
   </div>`;
 
   document.getElementById('content').innerHTML = html;
+  wireGrafikGaris();
 }
 
 /* ========================
@@ -823,26 +1005,40 @@ const listConfig = {
     subtitle: 'Pencatatan barang masuk ke toko utama',
     icon: ico('inventory_2'),
     addLabel: '+ Tambah Barang Masuk',
-    columns: ['No','Supplier / Tanggal','Nama Barang','Isi (Besar)','Isi (Ecer)','Harga Modal','Harga Jual','Aksi'],
+    columns: ['No','Nama Barang','Isi (Besar)','Isi (Ecer)','Harga Modal','Harga Jual','Aksi'],
     grouped: true,
-    groupKeyFn: b => `${b.supplier}__${b.tanggal}`,
-    groupHeaderFn: (group) => `<td class="supplier-cell" rowspan="__ROWSPAN__">
-      <div class="supplier-cell-inner">
-        <div class="supplier-name">${group.rows[0].supplier}</div>
-        <div class="supplier-date">${formatDate(group.rows[0].tanggal)}</div>
-      </div></td>`,
-    itemCellsFn: b => `
-      <td class="primary">${b.nama}</td>
-      <td>${fmtNum(b.jumlah1 || b.jumlah)} <span class="badge badge-blue">${b.satuan1 || b.satuan}</span></td>
-      <td>${fmtNum(b.jumlah2 || b.jumlah)} <span class="badge badge-orange">${b.satuan2 || b.satuan}</span></td>
-      <td>${fmt(b.hargaModal)}<br><small class="text-muted">/ ${b.satuan1 || b.satuan}</small></td>
+    groupKeyFn: b => `${e(b.supplier)}__${b.tanggal}`,
+    groupTitleFn: g => ({ nama: g.rows[0].supplier || '(Tanpa supplier)', sub: formatDate(g.rows[0].tanggal) }),
+    groupBadgeFn: g => `<span class="grup-badge netral">${g.rows.length} jenis barang</span>`,
+    /* Satuan kedua (ecer) tidak selalu ada — kalau kosong jangan diisi ulang
+       dengan angka satuan pertama, cukup tampilkan tanda strip. */
+    itemCellsFn: b => {
+      const sat1  = b.satuan1 || b.satuan || '';
+      const adaEcer = b.jumlah2 && b.satuan2;
+      const jual2 = b.hargaJual2;
+      return `
+      <td class="primary">${e(b.nama)}</td>
+      <td>${fmtNum(b.jumlah1 || b.jumlah)} <span class="badge badge-blue">${e(sat1)}</span></td>
+      <td>${adaEcer ? `${fmtNum(b.jumlah2)} <span class="badge badge-orange">${e(b.satuan2)}</span>` : '<span class="text-muted">—</span>'}</td>
+      <td>${fmt(b.hargaModal)}<br><small class="text-muted">/ ${e(sat1)}</small></td>
       <td>
-        ${fmt(b.hargaJual1 || b.hargaJual)} <small class="text-muted">/ ${b.satuan1 || b.satuan}</small><br>
-        ${fmt(b.hargaJual2 || b.hargaJual)} <small class="text-muted">/ ${b.satuan2 || b.satuan}</small>
-      </td>`,
-    subtotalFn: null,
+        ${fmt(b.hargaJual1 || b.hargaJual)} <small class="text-muted">/ ${e(sat1)}</small>
+        ${adaEcer && jual2 ? `<br>${fmt(jual2)} <small class="text-muted">/ ${e(b.satuan2)}</small>` : ''}
+      </td>`;
+    },
+    subtotalRowFn: (rows, nama) => {
+      const totalBesar = rows.reduce((s2, b) => s2 + Number(b.jumlah1 || b.jumlah || 0), 0);
+      const totalEcer  = rows.reduce((s2, b) => s2 + Number(b.jumlah2 || 0), 0);
+      const totalModal = rows.reduce((s2, b) => s2 + Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0), 0);
+      return `<td></td>
+        <td class="subtotal-label">Subtotal ${e(nama)}</td>
+        <td class="subtotal-val">${fmtNum(totalBesar)} item</td>
+        <td class="subtotal-val">${totalEcer ? fmtNum(totalEcer) + ' pcs' : '—'}</td>
+        <td class="subtotal-val">${fmt(totalModal)}</td>
+        <td></td><td></td>`;
+    },
     formFn: formBarangMasuk,
-    searchFn: (b, q) => `${b.nama} ${b.supplier}`.toLowerCase().includes(q),
+    searchFn: (b, q) => `${e(b.nama)} ${e(b.supplier)}`.toLowerCase().includes(q),
   },
   utang: {
     title: 'Utang',
@@ -851,7 +1047,7 @@ const listConfig = {
     addLabel: '+ Tambah Utang',
     columns: ['No','Tanggal','Keterangan','Jumlah','Status','Aksi'],
     grouped: false,
-    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-negative">${fmt(x.jumlah)}</td>${statusBadgeCell('utang', x)}`,
+    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${e(x.keterangan)}</td><td class="amount-negative">${fmt(x.jumlah)}</td>${statusBadgeCell('utang', x)}`,
     formFn: formUtang,
     searchFn: (x, q) => x.keterangan.toLowerCase().includes(q),
   },
@@ -860,22 +1056,22 @@ const listConfig = {
     subtitle: 'Catatan piutang toko utama',
     icon: ico('credit_card'),
     addLabel: '+ Tambah Piutang',
-    columns: ['No','Nama Toko','Tanggal','No Faktur','Jumlah','Status','Aksi'],
+    columns: ['No','Tanggal','No Faktur','Jumlah','Status','Aksi'],
     grouped: true,
     groupKeyFn: x => x.nama,
-    groupHeaderFn: (group) => `<td class="supplier-cell" rowspan="__ROWSPAN__">
-      <div class="supplier-cell-inner">
-        <div class="supplier-name">${group.rows[0].nama}</div>
-      </div></td>`,
+    groupTitleFn: g => ({ nama: g.rows[0].nama || '(Tanpa nama)', sub: `${g.rows.length} faktur` }),
+    groupBadgeFn: badgeLunasGrup,
     itemCellsFn: x => `
       <td>${formatDate(x.tanggal)}</td>
-      <td>${x.noFaktur || '-'}</td>
+      <td>${e(x.noFaktur || '-')}</td>
       <td class="amount-positive">${fmt(x.jumlah)}</td>
       ${statusBadgeCell('piutang', x)}`,
-    subtotalFn: rows => rows.reduce((s,x) => s + Number(x.jumlah || 0), 0),
-    subtotalCols: 3,
+    subtotalRowFn: (rows, nama) => `<td></td>
+      <td class="subtotal-label" colspan="2">Subtotal ${e(nama)}</td>
+      <td class="subtotal-val">${fmt(rows.reduce((s2,x) => s2 + Number(x.jumlah || 0), 0))}</td>
+      <td></td><td></td>`,
     formFn: formPiutang,
-    searchFn: (x, q) => `${x.nama} ${x.noFaktur}`.toLowerCase().includes(q),
+    searchFn: (x, q) => `${e(x.nama)} ${e(x.noFaktur)}`.toLowerCase().includes(q),
   },
   uangKeluar: {
     title: 'Uang Keluar',
@@ -884,7 +1080,7 @@ const listConfig = {
     addLabel: '+ Tambah Uang Keluar',
     columns: ['No','Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: false,
-    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-negative">-${fmt(x.jumlah)}</td>`,
+    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${e(x.keterangan)}</td><td class="amount-negative">-${fmt(x.jumlah)}</td>`,
     formFn: formSimple(['keterangan:Keterangan','jumlah:Jumlah (Rp)']),
     searchFn: (x, q) => x.keterangan.toLowerCase().includes(q),
   },
@@ -893,63 +1089,65 @@ const listConfig = {
     subtitle: 'Pencatatan penjualan rute luar kota',
     icon: ico('local_shipping'),
     addLabel: '+ Tambah Barang Terjual',
-    columns: ['No','Nama Toko','No PM','Tanggal','Nama Barang','Qty','Harga','Jumlah','Aksi'],
+    columns: ['No','Nama Barang','Qty','Harga','Jumlah','Aksi'],
     grouped: true,
-    groupKeyFn: b => `${b.pelanggan}__${b.noFaktur || ''}__${b.tanggal}`,
-    groupHeaderFn: (group) => `
-      <td class="supplier-cell" rowspan="__ROWSPAN__"><div class="supplier-name">${group.rows[0].pelanggan}</div></td>
-      <td rowspan="__ROWSPAN__">${group.rows[0].noFaktur || '-'}</td>
-      <td rowspan="__ROWSPAN__">${formatDate(group.rows[0].tanggal)}</td>`,
+    groupKeyFn: b => `${e(b.pelanggan)}__${e(b.noFaktur || '')}__${b.tanggal}`,
+    groupTitleFn: g => ({
+      nama: g.rows[0].pelanggan || '(Tanpa nama toko)',
+      sub: `No PM ${g.rows[0].noFaktur || '-'} \u00b7 ${formatDate(g.rows[0].tanggal)}`,
+    }),
+    groupBadgeFn: g => `<span class="grup-badge netral">${g.rows.length} jenis barang</span>`,
     itemCellsFn: b => `
-      <td class="primary">${b.nama}</td>
-      <td>${fmtNum(b.jumlah)} ${b.satuan}</td>
+      <td class="primary">${e(b.nama)}</td>
+      <td>${fmtNum(b.jumlah)} ${e(b.satuan)}</td>
       <td>${fmt(b.hargaJual)}</td>
       <td class="amount-positive">${fmt(b.jumlah * b.hargaJual)}</td>`,
-    subtotalFn: rows => rows.reduce((s,b) => s + b.jumlah * b.hargaJual, 0),
-    subtotalCols: 5,
+    subtotalRowFn: (rows, nama) => `<td></td>
+      <td class="subtotal-label" colspan="3">Subtotal ${e(nama)}</td>
+      <td class="subtotal-val">${fmt(rows.reduce((s2,b) => s2 + Number(b.jumlah || 0) * Number(b.hargaJual || 0), 0))}</td>
+      <td></td>`,
     formFn: formBarangTerjual,
-    searchFn: (b, q) => `${b.nama} ${b.pelanggan}`.toLowerCase().includes(q),
+    searchFn: (b, q) => `${e(b.nama)} ${e(b.pelanggan)}`.toLowerCase().includes(q),
   },
   rekapPiutang: {
     title: 'Rekap Piutang (Luar Kota)',
     subtitle: 'Piutang dari rute luar kota',
     icon: ico('receipt_long'),
     addLabel: '+ Tambah Rekap Piutang',
-    columns: ['No','Nama Toko','Tanggal','No Faktur','Jumlah','Status','Aksi'],
+    columns: ['No','Tanggal','No Faktur','Jumlah','Status','Aksi'],
     grouped: true,
     groupKeyFn: x => x.nama,
-    groupHeaderFn: (group) => `<td class="supplier-cell" rowspan="__ROWSPAN__">
-      <div class="supplier-cell-inner">
-        <div class="supplier-name">${group.rows[0].nama}</div>
-      </div></td>`,
+    groupTitleFn: g => ({ nama: g.rows[0].nama || '(Tanpa nama)', sub: `${g.rows.length} faktur` }),
+    groupBadgeFn: badgeLunasGrup,
     itemCellsFn: x => `
       <td>${formatDate(x.tanggal)}</td>
-      <td>${x.noFaktur || '-'}</td>
+      <td>${e(x.noFaktur || '-')}</td>
       <td class="amount-positive">${fmt(x.jumlah)}</td>
       ${statusBadgeCell('rekapPiutang', x)}`,
-    subtotalFn: rows => rows.reduce((s,x) => s + Number(x.jumlah || 0), 0),
-    subtotalCols: 3,
+    subtotalRowFn: (rows, nama) => `<td></td>
+      <td class="subtotal-label" colspan="2">Subtotal ${e(nama)}</td>
+      <td class="subtotal-val">${fmt(rows.reduce((s2,x) => s2 + Number(x.jumlah || 0), 0))}</td>
+      <td></td><td></td>`,
     formFn: formRekapPiutang,
-    searchFn: (x, q) => `${x.nama} ${x.noFaktur}`.toLowerCase().includes(q),
+    searchFn: (x, q) => `${e(x.nama)} ${e(x.noFaktur)}`.toLowerCase().includes(q),
   },
   tagihan: {
     title: 'Tagihan (Luar Kota)',
     subtitle: 'Tagihan dari rute luar kota',
     icon: ico('request_quote'),
     addLabel: '+ Tambah Tagihan',
-    columns: ['No','Nama / Tanggal','Keterangan','Jumlah','Aksi'],
+    columns: ['No','Keterangan','Jumlah','Aksi'],
     grouped: true,
-    groupKeyFn: x => `${x.nama}__${x.tanggal}`,
-    groupHeaderFn: (group) => `<td class="supplier-cell" rowspan="__ROWSPAN__">
-      <div class="supplier-cell-inner">
-        <div class="supplier-name">${group.rows[0].nama}</div>
-        <div class="supplier-date">${formatDate(group.rows[0].tanggal)}</div>
-      </div></td>`,
-    itemCellsFn: x => `<td class="primary">${x.keterangan}</td><td>${fmt(x.jumlah)}</td>`,
-    subtotalFn: rows => rows.reduce((s,x) => s + Number(x.jumlah || 0), 0),
-    subtotalCols: 2,
+    groupKeyFn: x => `${e(x.nama)}__${x.tanggal}`,
+    groupTitleFn: g => ({ nama: g.rows[0].nama || '(Tanpa nama)', sub: formatDate(g.rows[0].tanggal) }),
+    groupBadgeFn: g => `<span class="grup-badge netral">${g.rows.length} tagihan</span>`,
+    itemCellsFn: x => `<td class="primary">${e(x.keterangan)}</td><td>${fmt(x.jumlah)}</td>`,
+    subtotalRowFn: (rows, nama) => `<td></td>
+      <td class="subtotal-label">Subtotal ${e(nama)}</td>
+      <td class="subtotal-val">${fmt(rows.reduce((s2,x) => s2 + Number(x.jumlah || 0), 0))}</td>
+      <td></td>`,
     formFn: formSimple(['nama:Nama','keterangan:Keterangan','jumlah:Jumlah (Rp)']),
-    searchFn: (x, q) => `${x.nama} ${x.keterangan}`.toLowerCase().includes(q),
+    searchFn: (x, q) => `${e(x.nama)} ${e(x.keterangan)}`.toLowerCase().includes(q),
   },
   uangKeluarLK: {
     title: 'Uang Keluar (Luar Kota)',
@@ -958,7 +1156,7 @@ const listConfig = {
     addLabel: '+ Tambah Uang Keluar',
     columns: ['No','Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: false,
-    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-negative">-${fmt(x.jumlah)}</td>`,
+    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${e(x.keterangan)}</td><td class="amount-negative">-${fmt(x.jumlah)}</td>`,
     formFn: formSimple(['keterangan:Keterangan','jumlah:Jumlah (Rp)']),
     searchFn: (x, q) => x.keterangan.toLowerCase().includes(q),
   },
@@ -969,7 +1167,7 @@ const listConfig = {
     addLabel: '+ Tambah Uang Masuk',
     columns: ['No','Tanggal','Keterangan','Jumlah','Aksi'],
     grouped: false,
-    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${x.keterangan}</td><td class="amount-positive">${fmt(x.jumlah)}</td>`,
+    rowFn: (x) => `<td>${formatDate(x.tanggal)}</td><td class="primary">${e(x.keterangan)}</td><td class="amount-positive">${fmt(x.jumlah)}</td>`,
     formFn: formSimple(['keterangan:Keterangan','jumlah:Jumlah (Rp)']),
     searchFn: (x, q) => x.keterangan.toLowerCase().includes(q),
   },
@@ -980,7 +1178,7 @@ const listConfig = {
     addLabel: '+ Tambah Rute',
     columns: ['No', 'Nama Rute', 'Aksi'],
     grouped: false,
-    rowFn: (x) => `<td class="primary">${x.nama}</td>`,
+    rowFn: (x) => `<td class="primary">${e(x.nama)}</td>`,
     formFn: formSimple(['nama:Nama Rute']),
     searchFn: (x, q) => x.nama.toLowerCase().includes(q),
   }
@@ -1007,10 +1205,10 @@ function formPerjalanan(data = {}) {
 }
 
 function openAddPerjalanan(ruteId, key) {
-  openModal('Tambah Perjalanan', formPerjalanan(), (form) => {
+  openModal('Tambah ' + istilahGrup(ruteId), formPerjalanan(), (form) => {
     const fd = Object.fromEntries(new FormData(form));
     fd.id = uid();
-    fd.ruteId = ruteId;
+    if (ruteId) fd.ruteId = ruteId;      // periode Toko Utama tidak terikat rute
     store.perjalananList.push(fd);
     saveStore();
     closeModal();
@@ -1022,7 +1220,7 @@ function openAddPerjalanan(ruteId, key) {
 function openEditPerjalanan(id, key) {
   const item = store.perjalananList.find(x => x.id === id);
   if (!item) return;
-  openModal('Edit Perjalanan', formPerjalanan(item), (form) => {
+  openModal('Edit ' + istilahGrup(item.ruteId), formPerjalanan(item), (form) => {
     const fd = Object.fromEntries(new FormData(form));
     const idx = store.perjalananList.findIndex(x => x.id === id);
     store.perjalananList[idx] = { ...item, ...fd };
@@ -1065,18 +1263,70 @@ const PERJALANAN_KEYS = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluar
 const LEGACY_PAGE_FOR_KEY = {
   barangTerjual: 'barang-terjual', rekapPiutang: 'rekap-piutang', tagihan: 'tagihan',
   uangKeluarLK: 'uang-keluar-lk', uangMasuk: 'uang-masuk',
+  uangKeluar: 'uang-keluar-semua',
 };
 const PJ_PAGE_FOR_KEY = {
   barangTerjual: 'pj-barang-terjual', rekapPiutang: 'pj-rekap-piutang', tagihan: 'pj-tagihan',
   uangKeluarLK: 'pj-uang-keluar', uangMasuk: 'pj-uang-masuk',
+  uangKeluar: 'uang-keluar',
 };
+
+/* Uang Keluar Toko Utama memakai mesin pengelompokan yang sama dengan rute.
+   Bedanya hanya: catatan rute punya ruteId, catatan Toko Utama tidak (ruteId kosong).
+   Istilahnya pun disesuaikan — "Perjalanan" untuk rute, "Periode" untuk Toko Utama. */
+const istilahGrup = (ruteId) => (ruteId ? 'Perjalanan' : 'Periode');
+
+/** Cocokkan satu catatan dengan lingkup rute (kosong = milik Toko Utama). */
+function cocokRute(x, ruteId) {
+  return ruteId ? x.ruteId === ruteId : !x.ruteId;
+}
+
+/* ── Batas tanggal saat mengisi di dalam sebuah perjalanan/periode ──
+   Kalau admin sudah menetapkan rentang tanggal, isian di dalamnya
+   tidak boleh keluar dari rentang itu. */
+function batasTanggalGrup() {
+  if (!currentPerjalananId) return null;
+  const pj = store.perjalananList.find(x => x.id === currentPerjalananId);
+  if (!pj || !pj.tanggalMulai || !pj.tanggalSelesai) return null;
+  return { min: pj.tanggalMulai, max: pj.tanggalSelesai, pj };
+}
+
+/** Atribut untuk <input type="date">: nilai awal masuk akal + batas min/max. */
+function attrTanggal(nilaiSaatIni) {
+  const b = batasTanggalGrup();
+  if (!b) return { value: nilaiSaatIni || today(), attrs: '' };
+  const t = today();
+  // kalau hari ini di luar rentang, mulai dari tanggal awal periode
+  const value = nilaiSaatIni || ((t >= b.min && t <= b.max) ? t : b.min);
+  return { value, attrs: ` min="${b.min}" max="${b.max}"` };
+}
+
+/** Keterangan kecil di bawah isian tanggal, biar admin tahu batasnya. */
+function petunjukTanggal() {
+  const b = batasTanggalGrup();
+  if (!b) return '';
+  return `<div class="field-hint">${ico('event', 14)}Hanya boleh antara
+    <b>${formatDate(b.min)}</b> dan <b>${formatDate(b.max)}</b></div>`;
+}
+
+/** Pengaman terakhir sebelum simpan (kalau batas di input berhasil dilewati). */
+function tanggalDiLuarGrup(tgl) {
+  const b = batasTanggalGrup();
+  if (!b || !tgl) return null;
+  if (tgl < b.min || tgl > b.max) {
+    return `Tanggal harus antara ${formatDate(b.min)} dan ${formatDate(b.max)}, sesuai periode yang dipilih.`;
+  }
+  return null;
+}
 
 function renderCategoryTripList(ruteId, key) {
   const content = document.getElementById('content');
   const rute = store.ruteList.find(x => x.id === ruteId);
   const cfg = listConfig[key];
+  const G = istilahGrup(ruteId);                    // "Perjalanan" atau "Periode"
+  const lingkup = ruteId ? `Rute ${e(rute ? rute.nama : '')}` : 'Toko Utama';
   const trips = store.perjalananList
-    .filter(x => x.ruteId === ruteId)
+    .filter(x => cocokRute(x, ruteId))
     .slice()
     .sort((a, b) => b.tanggalMulai.localeCompare(a.tanggalMulai));
 
@@ -1085,37 +1335,37 @@ function renderCategoryTripList(ruteId, key) {
     <div class="page-header">
       <div>
         <div class="page-title">${cfg.icon} ${cfg.title}</div>
-        <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — dikelompokkan per perjalanan (sekali jalan)</div>
+        <div class="page-subtitle">${lingkup} — dikelompokkan per ${G.toLowerCase()}${ruteId ? ' (sekali jalan)' : ''}</div>
       </div>
-      <button class="btn btn-primary" id="btn-add-perjalanan">+ Tambah Perjalanan</button>
+      <button class="btn btn-primary" id="btn-add-perjalanan">+ Tambah ${G}</button>
     </div>
     <div class="card">
       <div class="card-header">
-        <div class="card-title">Daftar Perjalanan</div>
+        <div class="card-title">Daftar ${G}</div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>No</th><th>Periode Perjalanan</th><th>Jumlah Data ${cfg.title}</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>No</th><th>${ruteId ? 'Periode Perjalanan' : 'Periode'}</th><th>Jumlah Data ${cfg.title}</th><th>Aksi</th></tr></thead>
           <tbody>
             ${trips.length ? trips.map((pj, i) => {
-              const count = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === pj.id).length;
+              const count = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === pj.id).length;
               return `
               <tr>
                 <td class="group-no-cell" style="width:44px;text-align:center;color:var(--text-muted);">${i + 1}</td>
-                <td class="primary" style="cursor:pointer;" onclick="openPerjalananCategory('${ruteId}','${pj.id}','${key}')">${perjalananLabel(pj)}</td>
+                <td class="primary" style="cursor:pointer;" onclick="openPerjalananCategory(${ruteId ? `'${ruteId}'` : 'null'},'${pj.id}','${key}')">${perjalananLabel(pj)}</td>
                 <td>${count} data</td>
                 <td>
                   <div class="actions">
-                    <button class="btn btn-primary btn-sm" onclick="openPerjalananCategory('${ruteId}','${pj.id}','${key}')">${ico('description',16)} Lihat & Cetak</button>
+                    <button class="btn btn-primary btn-sm" onclick="openPerjalananCategory(${ruteId ? `'${ruteId}'` : 'null'},'${pj.id}','${key}')">${ico('description',16)} Lihat & Cetak</button>
                     <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}','${key}')">${ico('edit',16)} Edit</button>
-                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}','${ruteId}','${key}')">${ico('delete',16)}</button>
+                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}',${ruteId ? `'${ruteId}'` : 'null'},'${key}')">${ico('delete',16)}</button>
                   </div>
                 </td>
               </tr>`;
             }).join('') : `<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">
                 <div class="empty-state-icon">${ico('inbox')}</div>
-                <div class="empty-state-title">Belum ada perjalanan</div>
-                <div class="empty-state-sub">Klik "+ Tambah Perjalanan" untuk mencatat perjalanan pertama</div>
+                <div class="empty-state-title">Belum ada ${G.toLowerCase()}</div>
+                <div class="empty-state-sub">Klik "+ Tambah ${G}" untuk mencatat ${G.toLowerCase()} pertama</div>
               </td></tr>`}
           </tbody>
         </table>
@@ -1123,7 +1373,7 @@ function renderCategoryTripList(ruteId, key) {
     </div>
 
     <div style="margin-top:16px; font-size:13px; color:var(--text-muted);">
-      Lihat riwayat lengkap ${cfg.title.toLowerCase()} rute ini (semua data, termasuk yang belum dikelompokkan ke perjalanan):
+      Lihat riwayat lengkap ${cfg.title.toLowerCase()} (semua data, termasuk yang belum dikelompokkan ke ${G.toLowerCase()}):
       <a href="#" id="pj-legacy-link" style="color:var(--accent);">Lihat Semua</a>
     </div>
   </div>`;
@@ -1143,10 +1393,12 @@ function openPerjalananCategory(ruteId, perjalananId, key, opts = {}) {
   const pj = store.perjalananList.find(x => x.id === perjalananId);
   const cfg = listConfig[key];
   document.querySelectorAll('.nav-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.page === PJ_PAGE_FOR_KEY[key] && el.dataset.rute === ruteId);
+    // Toko Utama tidak punya data-rute, jadi keduanya disamakan ke null dulu
+    el.classList.toggle('active',
+      el.dataset.page === PJ_PAGE_FOR_KEY[key] && (el.dataset.rute || null) === (ruteId || null));
   });
   document.getElementById('topbar-title').textContent =
-    `${cfg.title} - ${rute ? rute.nama : ''} (${pj ? perjalananLabel(pj) : ''})`;
+    `${cfg.title} - ${rute ? rute.nama : 'Toko Utama'} (${pj ? perjalananLabel(pj) : ''})`;
   renderPerjalananCategoryPage(ruteId, perjalananId, key);
   pushNavState({ type: 'pjCategory', ruteId, perjalananId, key }, opts);
 }
@@ -1158,20 +1410,19 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
   const cfg = listConfig[key];
   if (!pj || !cfg) { renderCategoryTripList(ruteId, key); return; }
 
-  const rows = store[key].filter(x => x.ruteId === ruteId && x.perjalananId === perjalananId);
+  const rows = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === perjalananId);
 
   content.innerHTML = `
   <div class="page-anim">
     <div class="print-header" id="print-header-pj-${key}"></div>
-    <div class="page-header" style="align-items:center;">
+    <div class="page-header nx-head" style="align-items:center;">
       <div class="no-print">
-        <a href="#" id="pj-cat-back-link" style="font-size:13px;color:var(--text-muted);text-decoration:none;">← Kembali ke Daftar Perjalanan</a>
-        <div class="page-title" style="margin-top:6px;">${cfg.icon} ${cfg.title}</div>
-        <div class="page-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
+        <div class="page-title">${cfg.icon} ${cfg.title}</div>
+        <div class="page-subtitle">${ruteId ? 'Rute ' + e(rute ? rute.nama : '') : 'Toko Utama'} — ${istilahGrup(ruteId)} ${perjalananLabel(pj)}</div>
       </div>
-      <div class="no-print" style="display:flex; gap:10px;">
+      <div class="no-print nx-head-aksi">
         <button class="btn btn-ghost" id="btn-print-pj-${key}">${ico('print',17)} Cetak</button>
-        <button class="btn btn-primary" id="btn-add-pj-${key}">${cfg.addLabel}</button>
+        <button class="btn btn-dark" id="btn-add-pj-${key}">${ico('add',17)}${cfg.addLabel.replace(/^\+\s*/, '')}</button>
       </div>
     </div>
 
@@ -1192,19 +1443,13 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
     renderRowsIntoTbody(key, rows, tbody);
   }
 
-  document.getElementById('pj-cat-back-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    if (navDepth > 0) { history.back(); return; }
-    currentPerjalananId = null;
-    navigate(PJ_PAGE_FOR_KEY[key], ruteId);
-  });
   document.getElementById(`btn-add-pj-${key}`).addEventListener('click', () => openAddModal(key));
   document.getElementById(`btn-print-pj-${key}`).addEventListener('click', () => {
     const el = document.getElementById(`print-header-pj-${key}`);
     if (el) {
       el.innerHTML = `
         <div class="print-title">Toko Panglima Bangunan — ${cfg.title.toUpperCase()}</div>
-        <div class="print-subtitle">Rute ${rute ? rute.nama : ''} — Perjalanan ${perjalananLabel(pj)}</div>
+        <div class="print-subtitle">${ruteId ? 'Rute ' + e(rute ? rute.nama : '') : 'Toko Utama'} — ${istilahGrup(ruteId)} ${perjalananLabel(pj)}</div>
         <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
     }
     window.print();
@@ -1225,32 +1470,27 @@ function renderList(key) {
   const html = `
   <div class="page-anim">
     <div class="print-header" id="print-header-${key}"></div>
-    <div class="page-header">
+    <div class="page-header nx-head">
       <div class="no-print">
         <div class="page-title">${cfg.icon} ${cfg.title}</div>
-        <div class="page-subtitle">${cfg.subtitle}</div>
+        <div class="page-subtitle">${ico('info',15)}${cfg.subtitle}</div>
       </div>
-      <div class="no-print" style="display:flex; gap:10px;">
+      <div class="no-print nx-head-aksi">
+        ${hasDateFilter ? `<div class="nx-filter-pill" id="filter-inputs-${key}">
+          ${ico('calendar_month',17)}${dateFilterInputsHtml(key)}
+        </div>` : ''}
         <button class="btn btn-ghost" id="btn-print-${key}">${ico('print',17)} Cetak</button>
-        <button class="btn btn-primary" id="btn-add-${key}">${cfg.addLabel}</button>
+        <button class="btn btn-dark" id="btn-add-${key}">${ico('add',17)}${cfg.addLabel.replace(/^\+\s*/, '')}</button>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header no-print" style="flex-wrap:wrap; row-gap:12px;">
-        <div class="card-title">Data ${cfg.title}</div>
-        <div class="search-bar">
+      <div class="nx-toolbar no-print">
+        <div class="search-bar lebar">
           ${ico('search')}
-          <input type="text" id="search-${key}" placeholder="Cari..." />
+          <input type="text" id="search-${key}" placeholder="Cari ${cfg.title.toLowerCase()}..." />
         </div>
       </div>
-      ${hasDateFilter ? `
-      <div class="card-header no-print" style="flex-wrap:wrap; row-gap:12px;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <label style="font-size:13px; color:var(--text-muted); font-weight:600;">Filter:</label>
-          <div style="display:flex; align-items:center; gap:8px;" id="filter-inputs-${key}">${dateFilterInputsHtml(key)}</div>
-        </div>
-      </div>` : ''}
       <div class="table-wrap">
         <table id="table-${key}">
           <thead><tr>${cfg.columns.map(c => `<th>${c}</th>`).join('')}</tr></thead>
@@ -1292,7 +1532,7 @@ function printCurrentPage(title, key) {
     periode = `${bulanTxt} ${tahunTxt}`;
   }
   const rute = currentRuteId ? store.ruteList.find(r => r.id === currentRuteId) : null;
-  const subtitle = rute ? `Rute ${rute.nama} — Periode: ${periode}` : `Periode: ${periode}`;
+  const subtitle = rute ? `Rute ${e(rute.nama)} — Periode: ${periode}` : `Periode: ${periode}`;
   const el = document.getElementById(`print-header-${key}`);
   if (el) {
     el.innerHTML = `
@@ -1334,6 +1574,13 @@ function renderEmptyTbody(tbody, colspan, sub) {
   </td></tr>`;
 }
 
+// baris yang tanggalnya di luar rentang periode (mis. periode dipersempit belakangan)
+function tandaiBarisLuar(item) {
+  const pesan = tanggalDiLuarGrup(item && item.tanggal);
+  if (!pesan) return { cls: '', attr: '' };
+  return { cls: ' row-luar-periode', attr: ` title="${e(pesan)}"` };
+}
+
 function renderRowsIntoTbody(key, filtered, tbody) {
   const cfg = listConfig[key];
   const items = filtered.slice().reverse();
@@ -1343,7 +1590,7 @@ function renderRowsIntoTbody(key, filtered, tbody) {
   } else {
     // Simple numbered list
     tbody.innerHTML = items.map((item, idx) => `
-      <tr>
+      <tr class="${tandaiBarisLuar(item).cls.trim()}"${tandaiBarisLuar(item).attr}>
         <td class="group-no-cell" style="width:44px;font-weight:700;color:var(--text-muted);text-align:center">${idx + 1}</td>
         ${cfg.rowFn(item)}
         <td>
@@ -1360,8 +1607,16 @@ function renderRowsIntoTbody(key, filtered, tbody) {
 /* ========================
    GENERIC GROUPED TABLE RENDERER
    ======================== */
+/* Badge status pelunasan untuk satu kelompok piutang. */
+function badgeLunasGrup(g) {
+  const belum = g.rows.filter(x => x.status !== 'Lunas').length;
+  if (!belum) return `<span class="grup-badge lunas">Lunas semua</span>`;
+  return `<span class="grup-badge belum">${belum} belum lunas</span>`;
+}
+
+/* Tabel berkelompok gaya baru: satu baris kepala per kelompok,
+   nomor urut berjalan di dalam kelompok, lalu satu baris subtotal. */
 function renderGroupedBody(key, items, tbody, cfg) {
-  // Build groups
   const groups = [];
   const groupMap = {};
   items.forEach(item => {
@@ -1370,27 +1625,32 @@ function renderGroupedBody(key, items, tbody, cfg) {
     groupMap[k].rows.push(item);
   });
 
+  const lebar = cfg.columns.length;
   let html = '';
-  groups.forEach((group, gi) => {
-    const rowCount = group.rows.length;
-    const sepStyle = gi > 0 ? 'border-top: 2px solid var(--border-light);' : '';
 
-    // build header cell with correct rowspan
-    const headerCell = cfg.groupHeaderFn(group, gi).replace(/__ROWSPAN__/g, rowCount);
+  groups.forEach((group, gi) => {
+    const judul = cfg.groupTitleFn
+      ? cfg.groupTitleFn(group)
+      : { nama: '', sub: '' };
+    const badge = cfg.groupBadgeFn ? cfg.groupBadgeFn(group) : '';
+
+    html += `<tr class="grup-kepala">
+      <td colspan="${lebar}">
+        <div class="grup-kepala-isi">
+          <span class="grup-dot"></span>
+          <span class="grup-nama">${e(judul.nama)}</span>
+          ${judul.sub ? `<span class="grup-sub">${e(judul.sub)}</span>` : ''}
+          <span class="grup-spacer"></span>
+          ${badge}
+        </div>
+      </td>
+    </tr>`;
 
     group.rows.forEach((item, ri) => {
-      const isFirst = ri === 0;
-      const bandClass = `group-band-${gi % 2}`;
-      html += `<tr class="${bandClass}"${isFirst && gi > 0 ? ` style="${sepStyle}"` : ''}>`;
-      if (isFirst) {
-        // NO cell
-        html += `<td class="group-no-cell" rowspan="${rowCount}">${gi + 1}</td>`;
-        // group header cell(s)
-        html += headerCell;
-      }
-      // item cells
+      const tanda = tandaiBarisLuar(item);
+      html += `<tr class="grup-isi${tanda.cls}"${tanda.attr}>`;
+      html += `<td class="group-no-cell">${ri + 1}</td>`;
       html += cfg.itemCellsFn(item);
-      // actions
       html += `<td>
         <div class="actions">
           <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">${ico('edit',16)} Edit</button>
@@ -1399,15 +1659,8 @@ function renderGroupedBody(key, items, tbody, cfg) {
       </tr>`;
     });
 
-    // Subtotal row
-    if (cfg.subtotalFn) {
-      const total = cfg.subtotalFn(group.rows);
-      const skip  = cfg.subtotalCols || 2;
-      html += `<tr class="subtotal-row group-band-${gi % 2}">
-        <td colspan="${skip + 2}" class="subtotal-label">Total</td>
-        <td class="subtotal-val">${fmt(total)}</td>
-        <td></td>
-      </tr>`;
+    if (cfg.subtotalRowFn) {
+      html += `<tr class="subtotal-row">${cfg.subtotalRowFn(group.rows, judul.nama)}</tr>`;
     }
   });
 
@@ -1478,7 +1731,7 @@ function stockDropdownOptions(selectedNama = '') {
     const sel = selectedNama === s.nama ? 'selected' : '';
     const dataObj = encodeURIComponent(JSON.stringify(s));
     const sisaTxt = formatStock(s.stokKecil, s.konversi, s.satuan1, s.satuan2);
-    html += `<option value="${s.nama}" data-stock="${dataObj}" ${sel}>${s.nama} - Sisa: ${sisaTxt}</option>`;
+    html += `<option value="${e(s.nama)}" data-stock="${dataObj}" ${sel}>${e(s.nama)} - Sisa: ${sisaTxt}</option>`;
   });
   return html;
 }
@@ -1490,15 +1743,16 @@ function formBarangMasuk(data = {}) {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" name="tanggal" value="${data.tanggal || today()}" required />
+        <input type="date" class="form-input" name="tanggal" value="${attrTanggal(data.tanggal).value}"${attrTanggal(data.tanggal).attrs} required />
+        ${petunjukTanggal()}
       </div>
       <div class="form-group">
         <label class="form-label">Nama Supplier</label>
-        <input type="text" class="form-input" name="supplier" value="${data.supplier || ''}" placeholder="Nama supplier" required />
+        <input type="text" class="form-input" name="supplier" value="${e(data.supplier || '')}" placeholder="Nama supplier" required />
       </div>
       <div class="form-group form-full">
         <label class="form-label">Nama Barang</label>
-        <input type="text" class="form-input" name="nama" value="${data.nama || ''}" placeholder="Nama barang" required />
+        <input type="text" class="form-input" name="nama" value="${e(data.nama || '')}" placeholder="Nama barang" required />
       </div>
       
       <div class="form-group">
@@ -1557,7 +1811,8 @@ function buildMultiBarangMasukForm() {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" id="bm-tanggal" value="${today()}" required />
+        <input type="date" class="form-input" id="bm-tanggal" value="${attrTanggal().value}"${attrTanggal().attrs} required />
+        ${petunjukTanggal()}
       </div>
       <div class="form-group">
         <label class="form-label">Nama Supplier</label>
@@ -1650,6 +1905,8 @@ function openMultiBarangMasukModal() {
 
   document.getElementById('bm-simpan').addEventListener('click', () => {
     const tanggal  = document.getElementById('bm-tanggal').value.trim();
+    const salahTgl = tanggalDiLuarGrup(tanggal);
+    if (salahTgl) { showToast(salahTgl, 'error'); return; }
     const supplier = document.getElementById('bm-supplier').value.trim();
 
     if (!tanggal) { showToast('Tanggal wajib diisi!', 'error'); return; }
@@ -1687,7 +1944,7 @@ function openMultiBarangMasukModal() {
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
     renderList('barangMasuk');
-    showToast(`${items.length} barang dari ${supplier} berhasil disimpan!`, 'success');
+    showToast(`${items.length} barang dari ${e(supplier)} berhasil disimpan!`, 'success');
   });
 }
 
@@ -1696,15 +1953,16 @@ function formBarangTerjual(data = {}) {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" name="tanggal" value="${data.tanggal || today()}" required />
+        <input type="date" class="form-input" name="tanggal" value="${attrTanggal(data.tanggal).value}"${attrTanggal(data.tanggal).attrs} required />
+        ${petunjukTanggal()}
       </div>
       <div class="form-group">
         <label class="form-label">Nama Pelanggan / Proyek</label>
-        <input type="text" class="form-input" name="pelanggan" value="${data.pelanggan || ''}" placeholder="Nama pelanggan" required />
+        <input type="text" class="form-input" name="pelanggan" value="${e(data.pelanggan || '')}" placeholder="Nama pelanggan" required />
       </div>
       <div class="form-group form-full">
         <label class="form-label">No PM / Faktur</label>
-        <input type="text" class="form-input" name="noFaktur" value="${data.noFaktur || ''}" placeholder="Misal: 0829" />
+        <input type="text" class="form-input" name="noFaktur" value="${e(data.noFaktur || '')}" placeholder="Misal: 0829" />
       </div>
       <div class="form-group form-full">
         <label class="form-label">Nama Barang (Dari Stok)</label>
@@ -1741,15 +1999,16 @@ function formPiutang(data = {}) {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" name="tanggal" value="${data.tanggal || today()}" required />
+        <input type="date" class="form-input" name="tanggal" value="${attrTanggal(data.tanggal).value}"${attrTanggal(data.tanggal).attrs} required />
+        ${petunjukTanggal()}
       </div>
       <div class="form-group">
         <label class="form-label">Nama Toko</label>
-        <input type="text" class="form-input" name="nama" value="${data.nama || ''}" placeholder="Nama Toko" required />
+        <input type="text" class="form-input" name="nama" value="${e(data.nama || '')}" placeholder="Nama Toko" required />
       </div>
       <div class="form-group form-full">
         <label class="form-label">No Faktur</label>
-        <input type="text" class="form-input" name="noFaktur" value="${data.noFaktur || ''}" placeholder="Misal: PM - 0469" required />
+        <input type="text" class="form-input" name="noFaktur" value="${e(data.noFaktur || '')}" placeholder="Misal: PM - 0469" required />
       </div>
       <div class="form-group form-full">
         <label class="form-label">Jumlah (Rp)</label>
@@ -1775,15 +2034,16 @@ function formRekapPiutang(data = {}) {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" name="tanggal" value="${data.tanggal || today()}" required />
+        <input type="date" class="form-input" name="tanggal" value="${attrTanggal(data.tanggal).value}"${attrTanggal(data.tanggal).attrs} required />
+        ${petunjukTanggal()}
       </div>
       <div class="form-group">
         <label class="form-label">Nama Toko</label>
-        <input type="text" class="form-input" name="nama" value="${data.nama || ''}" placeholder="Nama Toko" required />
+        <input type="text" class="form-input" name="nama" value="${e(data.nama || '')}" placeholder="Nama Toko" required />
       </div>
       <div class="form-group form-full">
         <label class="form-label">No Faktur</label>
-        <input type="text" class="form-input" name="noFaktur" value="${data.noFaktur || ''}" placeholder="Misal: PM - 0469" required />
+        <input type="text" class="form-input" name="noFaktur" value="${e(data.noFaktur || '')}" placeholder="Misal: PM - 0469" required />
       </div>
       <div class="form-group form-full">
         <label class="form-label">Jumlah (Rp)</label>
@@ -1808,11 +2068,12 @@ function formUtang(data = {}) {
   return `<form id="modal-form">
     <div class="form-group form-full">
       <label class="form-label">Tanggal</label>
-      <input type="date" class="form-input" name="tanggal" value="${data.tanggal || today()}" required />
+      <input type="date" class="form-input" name="tanggal" value="${attrTanggal(data.tanggal).value}"${attrTanggal(data.tanggal).attrs} required />
+        ${petunjukTanggal()}
     </div>
     <div class="form-group form-full">
       <label class="form-label">Keterangan</label>
-      <input type="text" class="form-input" name="keterangan" value="${data.keterangan || ''}" placeholder="Keterangan" required />
+      <input type="text" class="form-input" name="keterangan" value="${e(data.keterangan || '')}" placeholder="Keterangan" required />
     </div>
     <div class="form-group form-full">
       <label class="form-label">Jumlah (Rp)</label>
@@ -1847,7 +2108,8 @@ function formSimple(fields) {
     return `<form id="modal-form">
       <div class="form-group form-full">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" name="tanggal" value="${data.tanggal || today()}" required />
+        <input type="date" class="form-input" name="tanggal" value="${attrTanggal(data.tanggal).value}"${attrTanggal(data.tanggal).attrs} required />
+        ${petunjukTanggal()}
       </div>
       ${rows.join('')}
       <div class="form-actions">
@@ -1867,7 +2129,8 @@ function buildMultiBarangTerjualForm() {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Tanggal</label>
-        <input type="date" class="form-input" id="bt-tanggal" value="${today()}" required />
+        <input type="date" class="form-input" id="bt-tanggal" value="${attrTanggal().value}"${attrTanggal().attrs} required />
+        ${petunjukTanggal()}
       </div>
       <div class="form-group">
         <label class="form-label">Nama Toko / Pelanggan</label>
@@ -2003,6 +2266,8 @@ function openMultiBarangTerjualModal() {
   document.getElementById('bt-add-row').addEventListener('click', btAddRow);
   document.getElementById('bt-simpan').addEventListener('click', () => {
     const tanggal   = document.getElementById('bt-tanggal').value.trim();
+    const salahTgl  = tanggalDiLuarGrup(tanggal);
+    if (salahTgl) { showToast(salahTgl, 'error'); return; }
     const pelanggan = document.getElementById('bt-pelanggan').value.trim();
     const noFaktur  = document.getElementById('bt-nofaktur').value.trim();
     if (!tanggal)   { showToast('Tanggal wajib diisi!', 'error'); return; }
@@ -2034,7 +2299,7 @@ function openMultiBarangTerjualModal() {
     closeModal();
     document.getElementById('modal').style.maxWidth = '';
     refreshAfterListChange('barangTerjual');
-    showToast(`${items.length} barang terjual ke ${pelanggan} berhasil disimpan!`, 'success');
+    showToast(`${items.length} barang terjual ke ${e(pelanggan)} berhasil disimpan!`, 'success');
   });
 }
 
@@ -2061,6 +2326,8 @@ function openAddModal(key) {
   const cfg = listConfig[key];
   openModal(`${cfg.icon} Tambah ${cfg.title}`, cfg.formFn(), (form) => {
     const fd = Object.fromEntries(new FormData(form));
+    const salahTgl = tanggalDiLuarGrup(fd.tanggal);
+    if (salahTgl) { showToast(salahTgl, 'error'); return false; }
     // coerce number fields
     ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
     fd.id = uid();
@@ -2084,6 +2351,8 @@ function openEditModal(key, id) {
   if (!item) return;
   openModal( `Edit ${cfg.title}`, cfg.formFn(item), (form) => {
     const fd = Object.fromEntries(new FormData(form));
+    const salahTgl = tanggalDiLuarGrup(fd.tanggal);
+    if (salahTgl) { showToast(salahTgl, 'error'); return false; }
     ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
     const idx = store[key].findIndex(x => x.id === id);
     store[key][idx] = { ...item, ...fd };
@@ -2146,10 +2415,12 @@ function getStokToko() {
         stokKecil: 0,
         hargaModal: b.hargaModal || 0,
         hargaJual1: b.hargaJual1 || b.hargaJual || 0,
-        hargaJual2: b.hargaJual2 || b.hargaJual || 0
+        hargaJual2: b.hargaJual2 || b.hargaJual || 0,
+        supplier: b.supplier || ''
       };
     }
     map[key].stokKecil += Number(b.jumlah2 || b.jumlah || 0);
+    map[key].supplier   = b.supplier || map[key].supplier;   // supplier pemasok terakhir
     map[key].hargaModal = b.hargaModal || 0;
     map[key].hargaJual1 = b.hargaJual1 || b.hargaJual || 0;
     map[key].hargaJual2 = b.hargaJual2 || b.hargaJual || 0;
@@ -2177,29 +2448,37 @@ function getStokToko() {
 }
 
 function stokStatus(item) {
-  if (item.stokKecil <= 0) return { label: 'Habis', cls: 'badge-red' };
-  if (item.stokKecil <= 5) return { label: 'Menipis', cls: 'badge-orange' };
-  return { label: 'Aman', cls: 'badge-green' };
+  if (item.stokKecil <= 0) return { label: 'Habis',   cls: 'badge-red',    baris: 'is-habis',   grup: 'Habis' };
+  if (item.stokKecil <= 5) return { label: 'Menipis', cls: 'badge-orange', baris: 'is-menipis', grup: 'Stok Menipis' };
+  return { label: 'Aman', cls: 'badge-green', baris: '', grup: 'Stok Aman' };
 }
 
 function stokRowHtml(item) {
-  const qtyBesar = item.stokKecil / item.konversi;
-  const sisaTxt = formatStock(item.stokKecil, item.konversi, item.satuan1, item.satuan2);
+  const qtyBesar   = item.stokKecil / item.konversi;
+  const sisaTxt    = formatStock(item.stokKecil, item.konversi, item.satuan1, item.satuan2);
   const nilaiModal = qtyBesar * item.hargaModal;
-  const nilaiJual = qtyBesar * item.hargaJual1;
-  const untung = nilaiJual - nilaiModal;
-  const status = stokStatus(item);
+  const nilaiJual  = qtyBesar * item.hargaJual1;
+  const untung     = nilaiJual - nilaiModal;
+  const status     = stokStatus(item);
   return `
-  <tr>
-    <td class="primary">${item.nama}</td>
+  <tr class="stok-baris ${status.baris}">
+    <td>
+      <div class="stok-item">
+        <span class="stok-ikon">${ico('inventory_2',18)}</span>
+        <span class="stok-item-teks">
+          <span class="stok-nama">${e(item.nama)}</span>
+          <span class="stok-sub">Satuan: ${e(item.satuan1)}${item.satuan2 && item.satuan2 !== item.satuan1 ? ' / ' + e(item.satuan2) : ''}</span>
+        </span>
+      </div>
+    </td>
     <td>
       <strong>${sisaTxt}</strong>
-      <span class="badge ${status.cls}" style="margin-left:8px;">${status.label}</span>
+      <span class="badge ${status.cls}" style="margin-left:8px;">${e(status.label)}</span>
     </td>
-    <td>${fmt(item.hargaModal)} <small class="text-muted">/ ${item.satuan1}</small></td>
-    <td>${fmt(item.hargaJual1)} <small class="text-muted">/ ${item.satuan1}</small></td>
+    <td>${fmt(item.hargaModal)} <small class="text-muted">/ ${e(item.satuan1)}</small></td>
+    <td>${fmt(item.hargaJual1)} <small class="text-muted">/ ${e(item.satuan1)}</small></td>
     <td>${fmt(nilaiModal)}</td>
-    <td class="amount-positive">${fmt(untung)}</td>
+    <td class="${untung >= 0 ? 'amount-positive' : 'amount-negative'}">${fmt(untung)}</td>
   </tr>`;
 }
 
@@ -2211,102 +2490,207 @@ function sortStokItems(items, sortBy) {
   return list;
 }
 
+/* Kelompok baris stok.
+   Aplikasi ini tidak menyimpan kategori barang, jadi pengelompokannya memakai
+   data yang memang ada: status ketersediaan atau supplier terakhir. */
+function kelompokStok(items, mode) {
+  if (mode === 'tanpa') return [{ judul: '', rows: items }];
+
+  const peta = new Map();
+  items.forEach(x => {
+    const k = mode === 'supplier'
+      ? (x.supplier || '(Tanpa supplier)')
+      : stokStatus(x).grup;
+    if (!peta.has(k)) peta.set(k, []);
+    peta.get(k).push(x);
+  });
+
+  let kunci = [...peta.keys()];
+  if (mode === 'status') {
+    const urut = ['Habis', 'Stok Menipis', 'Stok Aman'];
+    kunci.sort((a, b) => urut.indexOf(a) - urut.indexOf(b));
+  } else {
+    kunci.sort((a, b) => a.localeCompare(b, 'id', { sensitivity: 'base' }));
+  }
+  return kunci.map(k => ({ judul: k, rows: peta.get(k) }));
+}
+
+const STOK_PER_HALAMAN = 25;
+
 function renderStok() {
   const content = document.getElementById('content');
   const stok = getStokToko();
   const { items, totalModal, totalJual } = stok;
-  const totalUntung = totalJual - totalModal;
-  const menipisCount = items.filter(x => x.stokKecil <= 5).length;
+  const totalUntung  = totalJual - totalModal;
+  const habisCount   = items.filter(x => x.stokKecil <= 0).length;
+  const menipisCount = items.filter(x => x.stokKecil > 0 && x.stokKecil <= 5).length;
+  const perluRestock = habisCount + menipisCount;
+
+  let halaman = 1;
 
   const html = `
   <div class="page-anim">
-    <div class="page-header">
-      <div>
+    <div class="print-header" id="print-header-stok"></div>
+    <div class="page-header nx-head">
+      <div class="no-print">
         <div class="page-title">${ico('shelves',26)} Stok Toko</div>
-        <div class="page-subtitle">Persediaan barang berdasarkan data Barang Masuk</div>
+        <div class="page-subtitle">${ico('info',15)}Dihitung otomatis dari Barang Masuk dikurangi Barang Terjual</div>
+      </div>
+      <div class="no-print nx-head-aksi">
+        <button class="btn btn-ghost" id="btn-cetak-stok">${ico('print',17)} Cetak</button>
+        <button class="btn btn-dark" id="btn-ke-barang-masuk">${ico('add',17)}Tambah Barang Masuk</button>
       </div>
     </div>
 
-    <div class="stats-grid" style="margin-bottom:24px">
-      <div class="stat-card blue">
-        <div class="stat-icon blue">${ico('inventory_2')}</div>
-        <div class="stat-label">Total Jenis Barang</div>
-        <div class="stat-value">${items.length}</div>
+    <div class="nx-kpi-grid" style="margin-bottom:20px">
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('inventory_2',17)} Total Jenis Barang</div>
+        <div class="nx-mini-nilai">${fmtNum(items.length)}</div>
+        <div class="nx-mini-ket">Jenis barang yang pernah tercatat masuk</div>
       </div>
-      <div class="stat-card ${menipisCount > 0 ? 'red' : 'green'}">
-        <div class="stat-icon ${menipisCount > 0 ? 'red' : 'green'}">${ico('warning')}</div>
-        <div class="stat-label">Stok Menipis / Habis</div>
-        <div class="stat-value">${menipisCount}</div>
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('warning',17)} Stok Menipis / Habis</div>
+        <div class="nx-mini-nilai">${menipisCount} <span style="color:var(--muted);font-weight:600">/</span> ${habisCount}</div>
+        <div class="nx-mini-ket ${perluRestock ? 'perhatian' : ''}">
+          ${perluRestock ? `${perluRestock} barang perlu segera ditambah` : 'Semua stok masih aman'}
+        </div>
       </div>
-      <div class="stat-card green">
-        <div class="stat-icon green">${ico('account_balance_wallet')}</div>
-        <div class="stat-label">Total Nilai Modal Stok</div>
-        <div class="stat-value">${fmt(totalModal)}</div>
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('account_balance_wallet',17)} Total Nilai Modal</div>
+        <div class="nx-mini-nilai">${fmt(totalModal)}</div>
+        <div class="nx-mini-ket">Modal yang masih tertahan di barang</div>
       </div>
-      <div class="stat-card purple">
-        <div class="stat-icon purple">${ico('monitoring')}</div>
-        <div class="stat-label">Estimasi Untung Jika Terjual Semua</div>
-        <div class="stat-value">${fmt(totalUntung)}</div>
+      <div class="nx-kpi gelap" style="padding:16px 18px">
+        <div class="nx-kpi-top" style="margin-bottom:8px">
+          <span class="nx-kpi-judul" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase">
+            ${ico('monitoring',17)} Estimasi Untung
+          </span>
+        </div>
+        <div class="nx-kpi-nilai" style="font-size:22px">${fmt(totalUntung)}</div>
+        <div class="nx-kpi-delta">${ico('trending_up',15)}Jika seluruh stok saat ini terjual</div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header" style="flex-wrap:wrap; row-gap:12px;">
-        <div class="card-title">Daftar Stok Barang</div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <select class="form-select" id="sort-stok" style="width:190px;">
-            <option value="nama">Urutkan: Nama (A-Z)</option>
-            <option value="stok-terendah">Urutkan: Stok Tersedikit</option>
-            <option value="modal-tertinggi">Urutkan: Nilai Modal Tertinggi</option>
-          </select>
-          <div class="search-bar">
-            ${ico('search')}
-            <input type="text" id="search-stok" placeholder="Cari barang..." />
-          </div>
+      <div class="nx-toolbar no-print">
+        <div class="search-bar lebar">
+          ${ico('search')}
+          <input type="text" id="search-stok" placeholder="Cari nama barang..." />
         </div>
+        <select class="form-select" id="grup-stok" style="width:200px;">
+          <option value="status">Kelompok: Status Stok</option>
+          <option value="supplier">Kelompok: Supplier</option>
+          <option value="tanpa">Tanpa Kelompok</option>
+        </select>
+        <select class="form-select" id="sort-stok" style="width:210px;">
+          <option value="nama">Urutkan: Nama (A-Z)</option>
+          <option value="stok-terendah">Urutkan: Stok Tersedikit</option>
+          <option value="modal-tertinggi">Urutkan: Nilai Modal Tertinggi</option>
+        </select>
       </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th rowspan="2">Nama Barang</th>
-              <th rowspan="2">Sisa Stok</th>
-              <th colspan="2" style="text-align:center;">Harga per Satuan</th>
-              <th colspan="2" style="text-align:center;">Nilai Stok Saat Ini</th>
-            </tr>
-            <tr>
-              <th>Modal</th>
-              <th>Jual</th>
+              <th>Nama Barang</th>
+              <th>Sisa Stok</th>
+              <th>Harga Modal</th>
+              <th>Harga Jual</th>
               <th>Nilai Modal</th>
-              <th>Estimasi Untung</th>
+              <th>Est. Untung</th>
             </tr>
           </thead>
-          <tbody id="tbody-stok">
-            ${items.length ? sortStokItems(items, 'nama').map(stokRowHtml).join('') : `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-muted)">
-              <div class="empty-state-icon">${ico('inbox')}</div>
-              <div class="empty-state-title">Stok kosong</div>
-              <div class="empty-state-sub">Tambahkan data di menu Barang Masuk</div>
-            </td></tr>`}
-          </tbody>
+          <tbody id="tbody-stok"></tbody>
         </table>
       </div>
+      <div class="nx-pagination no-print" id="stok-pagination"></div>
     </div>
   </div>`;
 
   content.innerHTML = html;
 
-  function refresh() {
-    const q = document.getElementById('search-stok').value.toLowerCase().trim();
+  function terpilih() {
+    const q      = document.getElementById('search-stok').value.toLowerCase().trim();
     const sortBy = document.getElementById('sort-stok').value;
-    const tbody = document.getElementById('tbody-stok');
-    const filtered = sortStokItems(items.filter(x => x.nama.toLowerCase().includes(q)), sortBy);
-    tbody.innerHTML = filtered.length
-      ? filtered.map(stokRowHtml).join('')
-      : `<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-muted)">Tidak ditemukan</td></tr>`;
+    const mode   = document.getElementById('grup-stok').value;
+    const cocok  = sortStokItems(items.filter(x => x.nama.toLowerCase().includes(q)), sortBy);
+    return { cocok, mode };
   }
 
-  document.getElementById('search-stok').addEventListener('input', refresh);
-  document.getElementById('sort-stok').addEventListener('change', refresh);
+  function refresh() {
+    const { cocok, mode } = terpilih();
+    const tbody = document.getElementById('tbody-stok');
+    const total = cocok.length;
+    const maksHalaman = Math.max(1, Math.ceil(total / STOK_PER_HALAMAN));
+    if (halaman > maksHalaman) halaman = maksHalaman;
+
+    const mulai = (halaman - 1) * STOK_PER_HALAMAN;
+    const potong = cocok.slice(mulai, mulai + STOK_PER_HALAMAN);
+
+    if (!total) {
+      tbody.innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--muted)">
+        <div class="empty-state-icon">${ico('inbox')}</div>
+        <div class="empty-state-title">Tidak ditemukan</div>
+        <div class="empty-state-sub">Coba kata kunci lain, atau tambahkan data di menu Barang Masuk</div>
+      </td></tr>`;
+    } else {
+      tbody.innerHTML = kelompokStok(potong, mode).map(g => {
+        const kepala = g.judul ? `<tr class="grup-kepala"><td colspan="6">
+          <div class="grup-kepala-isi">
+            <span class="grup-dot"></span>
+            <span class="grup-nama">${e(g.judul)}</span>
+            <span class="grup-spacer"></span>
+            <span class="grup-badge netral">${g.rows.length} barang</span>
+          </div></td></tr>` : '';
+        return kepala + g.rows.map(stokRowHtml).join('');
+      }).join('');
+    }
+
+    const akhir = Math.min(mulai + STOK_PER_HALAMAN, total);
+    const nav = document.getElementById('stok-pagination');
+    nav.innerHTML = `
+      <span class="nx-pagination-info">
+        ${total ? `Menampilkan ${mulai + 1}–${akhir} dari ${fmtNum(total)} barang` : 'Tidak ada barang untuk ditampilkan'}
+      </span>
+      ${maksHalaman > 1 ? `<span class="nx-pagination-nav">
+        <button class="nx-page-btn" data-go="prev" ${halaman === 1 ? 'disabled' : ''} aria-label="Halaman sebelumnya">${ico('chevron_left',18)}</button>
+        ${Array.from({ length: maksHalaman }, (_, i) => i + 1).map(n =>
+          `<button class="nx-page-btn ${n === halaman ? 'aktif' : ''}" data-go="${n}">${n}</button>`).join('')}
+        <button class="nx-page-btn" data-go="next" ${halaman === maksHalaman ? 'disabled' : ''} aria-label="Halaman berikutnya">${ico('chevron_right',18)}</button>
+      </span>` : ''}`;
+
+    nav.querySelectorAll('.nx-page-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const go = btn.dataset.go;
+        if (go === 'prev') halaman--;
+        else if (go === 'next') halaman++;
+        else halaman = Number(go);
+        refresh();
+      });
+    });
+  }
+
+  refresh();
+
+  const ulangDariAwal = () => { halaman = 1; refresh(); };
+  document.getElementById('search-stok').addEventListener('input', ulangDariAwal);
+  document.getElementById('sort-stok').addEventListener('change', ulangDariAwal);
+  document.getElementById('grup-stok').addEventListener('change', ulangDariAwal);
+
+  document.getElementById('btn-ke-barang-masuk').addEventListener('click', () => {
+    navigate('barang-masuk');
+    openAddModal('barangMasuk');
+  });
+  document.getElementById('btn-cetak-stok').addEventListener('click', () => {
+    const el = document.getElementById('print-header-stok');
+    if (el) {
+      el.innerHTML = `
+        <div class="print-title">Toko Panglima Bangunan — STOK TOKO</div>
+        <div class="print-subtitle">${items.length} jenis barang · nilai modal ${fmt(totalModal)}</div>
+        <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
+    }
+    window.print();
+  });
 }
 
 /* ========================
@@ -2324,11 +2708,10 @@ function getLaporanMonths() {
   return [...set].sort((a, b) => a - b).map(v => ({ m: v % 12, y: Math.floor(v / 12) }));
 }
 
-function renderLaporan() {
-  const now = new Date();
-  const content = document.getElementById('content');
-
-  function buildLaporan(m, y) {
+/* Perhitungan laba/rugi satu bulan.
+   Sengaja global: Dashboard dan Laporan Keuangan memakai fungsi yang sama,
+   supaya angkanya tidak mungkin berbeda. */
+function buildLaporan(m, y) {
     function inMonth(arr, field = 'tanggal') {
       return arr.filter(x => {
         const { m: xm, y: xy } = getMonthYear(x[field]);
@@ -2369,200 +2752,343 @@ function renderLaporan() {
       totalPiutang, totalRekapPiutang, totalUtang, totalTagihan,
       saldoPiutang, saldoUtang
     };
+}
+
+/* ========================
+   GRAFIK GARIS UNTUNG / RUGI (Dashboard)
+   ======================== */
+function buildGrafikGarisLaba(data, kompak = false) {
+  if (!data.length) {
+    return `<div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><div class="card-title">${ico('show_chart')} Tren Untung / Rugi</div></div>
+      <div style="padding:34px;text-align:center;color:var(--text-muted)">Belum ada transaksi untuk ditampilkan grafiknya</div>
+    </div>`;
   }
 
-  function laporanRincian(lp) {
+  /* Di layar sempit, SVG ikut mengecil sehingga teks jadi tak terbaca.
+     Karena itu kanvasnya dibuat lebih "ramping & tinggi" supaya
+     ukuran huruf relatifnya membesar. */
+  /* `kompak` dipakai saat grafik diletakkan di kolom sempit (Laporan Keuangan):
+     kanvasnya dipersempit supaya ukuran huruf relatifnya tetap terbaca. */
+  const sempit = window.innerWidth <= 700;
+  const w = sempit ? 440 : (kompak ? 620 : 900);
+  const h = sempit ? 330 : (kompak ? 330 : 300);
+  const fsAxis  = sempit ? 15 : (kompak ? 14 : 11);
+  const rTitik  = sempit ? 6.5 : 5.5;
+  const padTop    = sempit ? 20 : 22;
+  const padBottom = sempit ? 46 : 40;
+  const padLeft   = sempit ? 62 : 68;
+  const padRight  = sempit ? 18 : 22;
+  const plotW = w - padLeft - padRight;
+  const plotH = h - padTop - padBottom;
+
+  const vals   = data.map(d => d.laba);
+  const rawMax = Math.max(0, ...vals);
+  const rawMin = Math.min(0, ...vals);
+  const span   = Math.max(rawMax - rawMin, 1);
+  const step   = Math.pow(10, Math.floor(Math.log10(span))) / 2;
+  const top    = Math.ceil(rawMax / step) * step;
+  const bottom = Math.floor(rawMin / step) * step;
+  const range  = Math.max(top - bottom, 1);
+
+  const n     = data.length;
+  const xOf   = i => padLeft + (n === 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const yOf   = v => padTop + plotH - ((v - bottom) / range) * plotH;
+  const zeroY = yOf(0);
+
+  // garis bantu + label sumbu
+  const ticks = [];
+  for (let v = bottom; v <= top + 1e-6; v += step) ticks.push(v);
+  if (ticks.length > 7) ticks.splice(0, ticks.length, bottom, bottom + range / 2, top);
+
+  const grid = ticks.map(v => {
+    const y = yOf(v), nol = Math.abs(v) < 1e-6;
+    return `<line x1="${padLeft}" y1="${y}" x2="${w - padRight}" y2="${y}"
+        stroke="${nol ? 'var(--border-strong)' : 'var(--border)'}" stroke-width="1"
+        ${nol ? '' : 'stroke-dasharray="3 4"'} />
+      <text x="${padLeft - 11}" y="${y + 4}" text-anchor="end" font-size="${fsAxis}"
+        font-family="Inter, sans-serif" fill="var(--muted)">${v === 0 ? '0' : (v < 0 ? '-' : '') + fmtShort(Math.abs(v))}</text>`;
+  }).join('');
+
+  const pts      = data.map((d, i) => [xOf(i), yOf(d.laba)]);
+  const garis    = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const areaAtas = `${garis} L${pts[n - 1][0].toFixed(1)} ${zeroY} L${pts[0][0].toFixed(1)} ${zeroY} Z`;
+
+  const uid2 = 'g' + Math.random().toString(36).slice(2, 8);
+
+  // Titik data: bulat, dibedakan warna sesuai untung/rugi,
+  // dan diberi cincin putih supaya tetap terbaca saat bertumpuk garis.
+  const titik = data.map((d, i) => {
+    const [x, y] = pts[i];
+    const pos = d.laba >= 0;
+    const col = pos ? 'var(--chart-profit)' : 'var(--chart-loss)';
+    return `<g class="line-pt" data-i="${i}" data-label="${e(MONTHS[d.m] + ' ' + d.y)}" data-val="${d.laba}">
+        <rect x="${(x - plotW / (n * 2) - 2).toFixed(1)}" y="${padTop}"
+              width="${(plotW / n + 4).toFixed(1)}" height="${plotH}" fill="transparent" />
+        <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rTitik}" fill="${col}" stroke="#fff" stroke-width="2" />
+      </g>`;
+  }).join('');
+
+  // Label pertama & terakhir dirapatkan ke dalam supaya tidak terpotong tepi kanvas.
+  const label = data.map((d, i) => {
+    const anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+    const x = i === 0 ? padLeft : (i === n - 1 ? w - padRight : pts[i][0]);
+    return `<text x="${Number(x).toFixed(1)}" y="${h - 16}" text-anchor="${anchor}" font-size="${fsAxis}"
+       font-family="Inter, sans-serif" fill="var(--muted)">${MONTHS[d.m].slice(0, 3)} ${String(d.y).slice(2)}</text>`;
+  }).join('');
+
+  const terakhir = data[n - 1];
+
+  return `
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">${ico('show_chart')} Tren Untung / Rugi</div>
+        <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">
+          Perkembangan laba bersih tiap bulan. Di atas garis 0 = untung, di bawah = rugi.
+        </div>
+      </div>
+      <div class="chart-legend">
+        <span><i style="background:var(--chart-profit)"></i>Untung</span>
+        <span><i style="background:var(--chart-loss)"></i>Rugi</span>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" role="img"
+           aria-label="Grafik garis tren untung rugi per bulan. Bulan terakhir ${e(MONTHS[terakhir.m])} ${terakhir.y}: ${terakhir.laba >= 0 ? 'untung' : 'rugi'} ${fmt(Math.abs(terakhir.laba))}."
+           style="width:100%; height:auto; display:block;">
+        <defs>
+          <linearGradient id="${uid2}-up" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="var(--chart-profit)" stop-opacity=".28" />
+            <stop offset="100%" stop-color="var(--chart-profit)" stop-opacity="0" />
+          </linearGradient>
+          <linearGradient id="${uid2}-dn" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%"   stop-color="var(--chart-loss)" stop-opacity=".28" />
+            <stop offset="100%" stop-color="var(--chart-loss)" stop-opacity="0" />
+          </linearGradient>
+          <clipPath id="${uid2}-atas"><rect x="0" y="${padTop}" width="${w}" height="${Math.max(0, zeroY - padTop)}" /></clipPath>
+          <clipPath id="${uid2}-bawah"><rect x="0" y="${zeroY}" width="${w}" height="${Math.max(0, padTop + plotH - zeroY)}" /></clipPath>
+        </defs>
+
+        ${grid}
+
+        <!-- area diwarnai sesuai posisi terhadap garis nol -->
+        <path class="chart-area-anim" d="${areaAtas}" fill="url(#${uid2}-up)" clip-path="url(#${uid2}-atas)" />
+        <path class="chart-area-anim" d="${areaAtas}" fill="url(#${uid2}-dn)" clip-path="url(#${uid2}-bawah)" />
+
+        <!-- garis utama, dipotong dua warna oleh garis nol -->
+        <path class="garis-laba" d="${garis}" fill="none" stroke="var(--chart-profit)" stroke-width="2.5"
+              stroke-linejoin="round" stroke-linecap="round" clip-path="url(#${uid2}-atas)" />
+        <path class="garis-laba" d="${garis}" fill="none" stroke="var(--chart-loss)" stroke-width="2.5"
+              stroke-linejoin="round" stroke-linecap="round" clip-path="url(#${uid2}-bawah)" />
+
+        ${titik}
+        ${label}
+      </svg>
+      <div class="chart-tooltip" id="garis-tooltip" hidden></div>
+    </div>
+  </div>`;
+}
+
+function wireGrafikGaris() {
+  const kurangiGerak = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Garis digambar dari kiri ke kanan.
+     Panjang tepatnya diambil dari path-nya sendiri supaya kecepatannya pas
+     berapa pun jumlah bulannya. */
+  if (!kurangiGerak) {
+    document.querySelectorAll('.garis-laba').forEach(path => {
+      const len = path.getTotalLength();
+      if (!len) return;
+      path.style.strokeDasharray  = len;
+      path.style.strokeDashoffset = len;
+      path.classList.add('chart-line-anim');
+    });
+    document.querySelectorAll('.line-pt').forEach((g, i) => {
+      const c = g.querySelector('circle');
+      if (c) c.style.animationDelay = (0.55 + i * 0.07) + 's';
+      g.classList.add('pt-anim');
+    });
+  }
+
+  const tip  = document.getElementById('garis-tooltip');
+  const wrap = tip ? tip.parentElement : null;
+  if (!tip || !wrap) return;
+
+  document.querySelectorAll('.line-pt').forEach(el => {
+    const tampil = (ev) => {
+      const val = Number(el.dataset.val);
+      const pos = val >= 0;
+      tip.innerHTML =
+        `<div class="tt-label">${el.dataset.label}</div>` +
+        `<div class="tt-val" style="color:${pos ? 'var(--chart-profit)' : 'var(--chart-loss)'}">` +
+        `${pos ? 'Untung' : 'Rugi'} ${fmt(Math.abs(val))}</div>`;
+      tip.hidden = false;
+      const r = wrap.getBoundingClientRect();
+      const p = ev.touches ? ev.touches[0] : ev;
+      const x = p.clientX - r.left, y = p.clientY - r.top;
+      tip.style.left = Math.max(8, Math.min(x, r.width - tip.offsetWidth - 8)) + 'px';
+      tip.style.top  = Math.max(4, y - tip.offsetHeight - 14) + 'px';
+    };
+    el.addEventListener('mousemove', tampil);
+    el.addEventListener('touchstart', tampil, { passive: true });
+    el.addEventListener('mouseleave', () => { tip.hidden = true; });
+  });
+  // sentuh di luar titik -> tutup tooltip
+  wrap.addEventListener('touchend', () => setTimeout(() => { tip.hidden = true; }, 2200), { passive: true });
+}
+
+/* Deret laba/rugi seluruh bulan yang ada datanya — dipakai grafik. */
+function seriesLabaBulanan() {
+  return getLaporanMonths()
+    .map(({ m, y }) => {
+      const lp = buildLaporan(m, y);
+      return { m, y, laba: lp.labaBersih, pendapatan: lp.totalPendapatan, pengeluaran: lp.totalPengeluaran };
+    })
+    .filter(d => d.pendapatan !== 0 || d.pengeluaran !== 0);
+}
+
+function renderLaporan() {
+  const now = new Date();
+  const content = document.getElementById('content');
+
+  /* Rincian pendapatan & pengeluaran, masing-masing dengan asal datanya. */
+  function rincianPendapatan(lp) {
     return [
-      { label: 'Penjualan Luar Kota', amount: lp.totalPenjualan },
-      { label: 'Uang Masuk (Lainnya)', amount: lp.totalUangMasuk },
-      { label: 'Uang Keluar (Toko Utama)', amount: -lp.uangKeluarUtama },
-      { label: 'Uang Keluar (Luar Kota)', amount: -lp.uangKeluarLK },
-      { label: 'Pembelian Barang Masuk (Modal Stok)', amount: -lp.totalBelanjaBarang },
-    ]
-      .filter(x => x.amount !== 0)
-      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+      { label: 'Penjualan Luar Kota', sub: 'Dari menu Barang Terjual di tiap rute', nilai: lp.totalPenjualan },
+      { label: 'Uang Masuk (Lainnya)', sub: 'Dari menu Uang Masuk di tiap rute',    nilai: lp.totalUangMasuk },
+    ].filter(x => x.nilai !== 0).sort((a, b) => b.nilai - a.nilai);
+  }
+  function rincianPengeluaran(lp) {
+    return [
+      { label: 'Pembelian Barang (Modal Stok)', sub: 'Dari menu Barang Masuk',        nilai: lp.totalBelanjaBarang },
+      { label: 'Uang Keluar Toko Utama',        sub: 'Operasional toko',              nilai: lp.uangKeluarUtama },
+      { label: 'Uang Keluar Luar Kota',         sub: 'Biaya selama perjalanan rute',  nilai: lp.uangKeluarLK },
+    ].filter(x => x.nilai !== 0).sort((a, b) => b.nilai - a.nilai);
+  }
+
+  function kartuRincian(judul, ikon, baris, total, positif) {
+    const warna = positif ? 'var(--chart-profit)' : 'var(--chart-loss)';
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">${ico(ikon)} ${judul}</div>
+        </div>
+        <div class="lk-rincian">
+          ${baris.length ? baris.map(r => {
+            const persen = total ? Math.round((r.nilai / total) * 100) : 0;
+            return `<div class="lk-rincian-baris">
+              <span class="lk-dot" style="background:${warna}"></span>
+              <span class="lk-rincian-teks">
+                <span class="lk-rincian-label">${e(r.label)}</span>
+                <span class="lk-rincian-sub">${e(r.sub)}</span>
+              </span>
+              <span class="lk-rincian-kanan">
+                <span class="lk-rincian-nilai" style="color:${warna}">${fmt(r.nilai)}</span>
+                <span class="lk-rincian-persen">${persen}% dari total</span>
+              </span>
+            </div>`;
+          }).join('') : `<div class="empty-state"><div class="empty-state-sub">Tidak ada transaksi bulan ini</div></div>`}
+        </div>
+      </div>`;
   }
 
   function renderLaporanContent(m, y) {
     const lp = buildLaporan(m, y);
+    const pm = m === 0 ? 11 : m - 1, py = m === 0 ? y - 1 : y;
+    const lalu = buildLaporan(pm, py);
     const labaPos = lp.labaBersih >= 0;
-    const laporanDiv = document.getElementById('laporan-content');
-    if (!laporanDiv) return;
+    const wadah = document.getElementById('laporan-content');
+    if (!wadah) return;
 
-    laporanDiv.innerHTML = `
-      <div class="profit-card plain ${labaPos ? 'is-profit' : 'is-loss'}" style="margin-bottom:8px;">
-        <div class="profit-card-left">
-          <h3>Estimasi ${labaPos ? 'Keuntungan' : 'Kerugian'} Bulan ${MONTHS[m]} ${y}</h3>
-          <div class="big-val">${fmt(Math.abs(lp.labaBersih))}</div>
+    wadah.innerHTML = `
+      <div class="lk-atas">
+        <div class="lk-kolom-kiri">
+          <div class="lk-laba ${labaPos ? 'is-untung' : 'is-rugi'}">
+            <div class="lk-laba-ikon">${ico(labaPos ? 'trending_up' : 'trending_down', 20)}</div>
+            <div class="lk-laba-label">Estimasi ${labaPos ? 'Laba Bersih' : 'Rugi Bersih'}</div>
+            <div class="lk-laba-nilai">${fmt(Math.abs(lp.labaBersih))}</div>
+            ${chipDelta(persenBeda(lp.labaBersih, lalu.labaBersih), true)}
+          </div>
+
+          <div class="lk-dua-kecil">
+            <div class="nx-mini">
+              <div class="nx-mini-label">Total Pendapatan</div>
+              <div class="nx-mini-nilai" style="font-size:19px">${fmt(lp.totalPendapatan)}</div>
+              ${chipDelta(persenBeda(lp.totalPendapatan, lalu.totalPendapatan), true)}
+            </div>
+            <div class="nx-mini">
+              <div class="nx-mini-label">Total Pengeluaran</div>
+              <div class="nx-mini-nilai" style="font-size:19px">${fmt(lp.totalPengeluaran)}</div>
+              ${chipDelta(persenBeda(lp.totalPengeluaran, lalu.totalPengeluaran), false)}
+            </div>
+          </div>
         </div>
-        <div class="profit-icon">${labaPos ? ico('trending_up',44) : ico('trending_down',44)}</div>
+
+        <div class="lk-kolom-kanan" id="laporan-chart"></div>
+      </div>
+
+      <div class="lk-dua-rincian">
+        ${kartuRincian('Rincian Pendapatan', 'south_west', rincianPendapatan(lp), lp.totalPendapatan, true)}
+        ${kartuRincian('Rincian Pengeluaran', 'north_east', rincianPengeluaran(lp), lp.totalPengeluaran, false)}
       </div>
 
       <div class="card" style="margin-bottom:24px;">
         <div class="card-header">
           <div>
-            <div class="card-title">${ico('search_insights')} Rincian Penyebab Untung / Rugi</div>
-            <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Semua sumber pendapatan & pengeluaran bulan ${MONTHS[m]} ${y}, diurutkan dari yang paling besar pengaruhnya</div>
+            <div class="card-title">${ico('menu_book')} Utang &amp; Piutang</div>
+            <div style="color:var(--muted); font-size:12px; margin-top:4px;">Catatan baru bulan ${MONTHS[m]} ${y}, dan sisa saldo yang belum lunas sampai sekarang</div>
           </div>
         </div>
         <div class="table-wrap">
-          <table>
+          <table class="lk-tabel-saldo">
             <tbody>
-              ${(() => {
-                const rincian = laporanRincian(lp);
-                if (!rincian.length) return `<tr><td style="padding:20px;text-align:center;color:var(--text-muted)">Tidak ada transaksi bulan ini</td></tr>`;
-                return rincian.map(r => `
-                  <tr>
-                    <td style="width:24px;">${r.amount >= 0 ? '<span style=\"color:var(--green-bright)\">&#9679;</span>' : '<span style=\"color:var(--red-bright)\">&#9679;</span>'}</td>
-                    <td class="primary">${r.label} <span style="color:var(--text-muted); font-weight:400;">(${r.amount >= 0 ? 'penambah untung' : 'penyebab rugi'})</span></td>
-                    <td class="${r.amount >= 0 ? 'amount-positive' : 'amount-negative'}" style="text-align:right; font-weight:700;">${r.amount >= 0 ? '' : '-'}${fmt(Math.abs(r.amount))}</td>
-                  </tr>`).join('');
-              })()}
-              <tr style="border-top:2px solid var(--border-light);">
-                <td></td>
-                <td style="font-weight:700;">${labaPos ? 'Estimasi Keuntungan' : 'Estimasi Kerugian'} Bersih</td>
-                <td style="text-align:right; font-weight:700; color:${labaPos ? 'var(--green)' : 'var(--red)'}">${fmt(Math.abs(lp.labaBersih))}</td>
+              <tr><td colspan="2" style="background:var(--surface-low);font-weight:700;font-size:12px;color:var(--muted)">TERCATAT BARU BULAN ${MONTHS[m].toUpperCase()} ${y}</td></tr>
+              <tr><td class="primary">Piutang Baru (Toko Utama)</td><td class="amount-positive">${fmt(lp.totalPiutang)}</td></tr>
+              <tr><td class="primary">Piutang Baru (Luar Kota)</td><td class="amount-positive">${fmt(lp.totalRekapPiutang)}</td></tr>
+              <tr><td class="primary">Utang Baru</td><td class="amount-negative">${fmt(lp.totalUtang)}</td></tr>
+              <tr><td class="primary">Tagihan (Luar Kota)</td><td class="amount-negative">${fmt(lp.totalTagihan)}</td></tr>
+
+              <tr><td colspan="2" style="background:var(--surface-low);font-weight:700;font-size:12px;color:var(--muted)">SISA SALDO BELUM LUNAS (SAAT INI)</td></tr>
+              <tr><td class="primary">Piutang Belum Lunas</td><td class="amount-positive">${fmt(lp.saldoPiutang)}</td></tr>
+              <tr><td class="primary">Utang Belum Lunas</td><td class="amount-negative">${fmt(lp.saldoUtang)}</td></tr>
+              <tr>
+                <td colspan="2" style="font-size:11px; color:var(--muted); padding-top:4px;">
+                  Angka ini sama dengan Dashboard, dan berubah otomatis begitu status piutang/utang ditandai "Lunas" di halaman pencatatan.
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom:24px;">
-        <!-- Card Laba Rugi -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">${ico('bar_chart')} Laporan Laba / Rugi</div>
-              <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Uang yang benar-benar masuk & keluar selama bulan ${MONTHS[m]} ${y}</div>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <tbody>
-                <tr><td colspan="2" style="background:var(--bg-sidebar);font-weight:700;font-size:12px;color:var(--text-muted)">PENDAPATAN</td></tr>
-                <tr><td class="primary">Penjualan Luar Kota</td><td class="amount-positive">${fmt(lp.totalPenjualan)}</td></tr>
-                <tr><td class="primary">Uang Masuk (Lainnya)</td><td class="amount-positive">${fmt(lp.totalUangMasuk)}</td></tr>
-                <tr><td style="font-weight:700">Total Pendapatan</td><td class="amount-positive" style="font-weight:700">${fmt(lp.totalPendapatan)}</td></tr>
-
-                <tr><td colspan="2" style="background:var(--bg-sidebar);font-weight:700;font-size:12px;color:var(--text-muted)">PENGELUARAN</td></tr>
-                <tr><td class="primary">Uang Keluar (Toko Utama)</td><td class="amount-negative">-${fmt(lp.uangKeluarUtama)}</td></tr>
-                <tr><td class="primary">Uang Keluar (Luar Kota)</td><td class="amount-negative">-${fmt(lp.uangKeluarLK)}</td></tr>
-                <tr><td class="primary">Pembelian Barang Masuk (Modal Stok)</td><td class="amount-negative">-${fmt(lp.totalBelanjaBarang)}</td></tr>
-                <tr><td style="font-weight:700">Total Pengeluaran</td><td class="amount-negative" style="font-weight:700">-${fmt(lp.totalPengeluaran)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Card Utang Piutang -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">${ico('menu_book')} Utang & Piutang</div>
-              <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Catatan baru bulan ${MONTHS[m]} ${y}, dan sisa saldo yang belum lunas sampai sekarang</div>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <tbody>
-                <tr><td colspan="2" style="background:var(--bg-sidebar);font-weight:700;font-size:12px;color:var(--text-muted)">TERCATAT BARU BULAN ${MONTHS[m].toUpperCase()} ${y}</td></tr>
-                <tr><td class="primary">Piutang Baru (Toko Utama)</td><td class="amount-positive">${fmt(lp.totalPiutang)}</td></tr>
-                <tr><td class="primary">Piutang Baru (Luar Kota)</td><td class="amount-positive">${fmt(lp.totalRekapPiutang)}</td></tr>
-                <tr><td class="primary">Utang Baru</td><td class="amount-negative">${fmt(lp.totalUtang)}</td></tr>
-                <tr><td class="primary">Tagihan (Luar Kota)</td><td class="amount-negative">${fmt(lp.totalTagihan)}</td></tr>
-
-                <tr><td colspan="2" style="background:var(--bg-sidebar);font-weight:700;font-size:12px;color:var(--text-muted)">SISA SALDO BELUM LUNAS (SAAT INI)</td></tr>
-                <tr>
-                  <td class="primary">Piutang Belum Lunas</td>
-                  <td class="amount-positive">${fmt(lp.saldoPiutang)}</td>
-                </tr>
-                <tr>
-                  <td class="primary">Utang Belum Lunas</td>
-                  <td class="amount-negative">${fmt(lp.saldoUtang)}</td>
-                </tr>
-                <tr>
-                  <td colspan="2" style="font-size:11px; color:var(--text-muted); padding-top:4px;">
-                    Angka ini sama dengan Dashboard, dan berubah otomatis begitu status piutang/utang ditandai "Lunas" di halaman pencatatan.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
+      </div>`;
   }
 
-  function buildLaporanChartHtml(chartData, selM, selY) {
-    if (!chartData.length) {
-      return `<div class="card"><div style="padding:30px;text-align:center;color:var(--text-muted)">Belum ada transaksi untuk ditampilkan grafiknya</div></div>`;
-    }
-    const w = 760, h = 220, padTop = 24, padBottom = 34, padSide = 24;
-    const chartH = h - padTop - padBottom;
-    const barGap = 18;
-    const barWidth = Math.min(64, (w - padSide * 2 - barGap * (chartData.length - 1)) / chartData.length);
-    const maxAbs = Math.max(1, ...chartData.map(d => Math.abs(d.laba)));
-    const zeroY = padTop + chartH / 2;
-    const scale = (chartH / 2 - 14) / maxAbs;
-
-    const bars = chartData.map((d, i) => {
-      const x = padSide + i * (barWidth + barGap);
-      const barH = Math.max(Math.abs(d.laba) * scale, d.laba === 0 ? 0 : 2);
-      const y = d.laba >= 0 ? zeroY - barH : zeroY;
-      const isPos = d.laba >= 0;
-      const isSelected = d.m === selM && d.y === selY;
-      const color = isPos ? 'var(--green)' : 'var(--red)';
-      const labelY = isPos ? y - 8 : y + barH + 16;
-      return `
-        <g>
-          <rect class="laba-bar" data-m="${d.m}" data-y="${d.y}" x="${x}" y="${y}" width="${barWidth}" height="${barH}"
-            fill="${color}" opacity="${isSelected ? '1' : '0.5'}" rx="4"
-            stroke="${color}" stroke-width="${isSelected ? 2 : 0}" style="cursor:pointer;" />
-          <text x="${x + barWidth / 2}" y="${labelY}" text-anchor="middle" font-size="11" fill="${color}" font-weight="700">${isPos ? '' : '-'}${fmtShort(Math.abs(d.laba))}</text>
-          <text x="${x + barWidth / 2}" y="${h - 12}" text-anchor="middle" font-size="11" fill="var(--text-muted)">${MONTHS[d.m].slice(0, 3)} ${String(d.y).slice(2)}</text>
-        </g>`;
-    }).join('');
-
-    return `
-    <div class="card">
-      <div class="card-header">
-        <div>
-          <div class="card-title">${ico('show_chart')} Grafik Untung / Rugi per Bulan</div>
-          <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">Klik salah satu batang untuk melihat rincian bulan tersebut. Hijau = untung, merah = rugi.</div>
-        </div>
-      </div>
-      <div style="padding:16px 20px;">
-        <svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto; max-height:240px; display:block;">
-          <line x1="${padSide}" y1="${zeroY}" x2="${w - padSide}" y2="${zeroY}" stroke="var(--border)" stroke-width="1" />
-          ${bars}
-        </svg>
-      </div>
-    </div>`;
-  }
-
-  function wireChartBarClicks() {
-    document.querySelectorAll('.laba-bar').forEach(el => {
+  /* Grafik garis dipakai bersama dengan Dashboard; di sini titiknya bisa diklik
+     untuk berpindah bulan. */
+  function wireKlikTitik(chartData, selM, selY) {
+    document.querySelectorAll('#laporan-chart .line-pt').forEach(el => {
+      const i = Number(el.dataset.i);
+      const d = chartData[i];
+      if (!d) return;
+      el.style.cursor = 'pointer';
+      if (d.m === selM && d.y === selY) el.classList.add('is-terpilih');
       el.addEventListener('click', () => {
-        const m = Number(el.dataset.m), y = Number(el.dataset.y);
-        document.getElementById('laporan-bulan').value = m;
-        document.getElementById('laporan-tahun').value = y;
-        renderAll(m, y);
+        document.getElementById('laporan-bulan').value = d.m;
+        document.getElementById('laporan-tahun').value = d.y;
+        renderAll(d.m, d.y);
       });
     });
   }
 
   function renderAll(m, y) {
     renderLaporanContent(m, y);
-    document.getElementById('laporan-chart').innerHTML = buildLaporanChartHtml(chartData, m, y);
-    wireChartBarClicks();
+    document.getElementById('laporan-chart').innerHTML = buildGrafikGarisLaba(chartData, true);
+    wireGrafikGaris();
+    wireKlikTitik(chartData, m, y);
   }
 
   const allMonths = getLaporanMonths();
-  const chartData = allMonths
-    .map(({ m, y }) => ({ m, y, lp: buildLaporan(m, y) }))
-    .filter(d => d.lp.totalPendapatan !== 0 || d.lp.totalPengeluaran !== 0)
-    .map(d => ({ m: d.m, y: d.y, laba: d.lp.labaBersih }));
+  const chartData = seriesLabaBulanan();
 
   let selM = now.getMonth(), selY = now.getFullYear();
   if (!allMonths.some(x => x.m === selM && x.y === selY)) {
@@ -2572,45 +3098,580 @@ function renderLaporan() {
   const bulanOptions = [...new Set(allMonths.map(x => x.m))].sort((a, b) => a - b);
   const tahunOptions = [...new Set(allMonths.map(x => x.y))].sort((a, b) => a - b);
 
-  const html = `
+  content.innerHTML = `
   <div class="page-anim">
-    <div class="page-header" style="align-items:center;">
-      <div>
+    <div class="print-header" id="print-header-laporan"></div>
+    <div class="page-header nx-head">
+      <div class="no-print">
         <div class="page-title">${ico('analytics',26)} Laporan Keuangan</div>
-        <div class="page-subtitle">Ringkasan kondisi keuangan toko</div>
+        <div class="page-subtitle">${ico('info',15)}Ringkasan performa keuangan dan arus kas operasional</div>
       </div>
-      <div class="filter-bar" style="display:flex; align-items:center; gap:8px;">
-        <label style="font-size:13px; color:var(--text-muted); font-weight:600;">Bulan:</label>
-        <select class="form-select" id="laporan-bulan" style="width:150px;">
-          ${bulanOptions.map(m => `<option value="${m}" ${m === selM ? 'selected' : ''}>${MONTHS[m]}</option>`).join('')}
-        </select>
-        <label style="font-size:13px; color:var(--text-muted); font-weight:600;">Tahun:</label>
-        <select class="form-select" id="laporan-tahun" style="width:100px;">
-          ${tahunOptions.map(y => `<option value="${y}" ${y === selY ? 'selected' : ''}>${y}</option>`).join('')}
-        </select>
+      <div class="no-print nx-head-aksi">
+        <div class="nx-filter-pill">
+          ${ico('calendar_month',17)}
+          <select class="form-select" id="laporan-bulan">
+            ${bulanOptions.map(m => `<option value="${m}" ${m === selM ? 'selected' : ''}>${MONTHS[m]}</option>`).join('')}
+          </select>
+          <select class="form-select" id="laporan-tahun">
+            ${tahunOptions.map(y => `<option value="${y}" ${y === selY ? 'selected' : ''}>${y}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-ghost" id="btn-penjelasan">${ico('help_center',17)} Penjelasan</button>
+        <button class="btn btn-primary" id="btn-unduh-laporan">${ico('download',17)} Unduh PDF</button>
       </div>
     </div>
-    <div id="laporan-chart" style="margin-bottom:24px;"></div>
     <div id="laporan-content"></div>
   </div>`;
 
-  content.innerHTML = html;
   renderAll(selM, selY);
 
-  document.getElementById('laporan-bulan').addEventListener('change', () => {
-    renderAll(Number(document.getElementById('laporan-bulan').value), Number(document.getElementById('laporan-tahun').value));
+  const ulang = () => renderAll(
+    Number(document.getElementById('laporan-bulan').value),
+    Number(document.getElementById('laporan-tahun').value)
+  );
+  document.getElementById('laporan-bulan').addEventListener('change', ulang);
+  document.getElementById('laporan-tahun').addEventListener('change', ulang);
+  document.getElementById('btn-penjelasan').addEventListener('click', () => navigate('penjelasan-laporan'));
+  document.getElementById('btn-unduh-laporan').addEventListener('click', () => {
+    const m = Number(document.getElementById('laporan-bulan').value);
+    const y = Number(document.getElementById('laporan-tahun').value);
+    const el = document.getElementById('print-header-laporan');
+    if (el) {
+      el.innerHTML = `
+        <div class="print-title">Toko Panglima Bangunan — LAPORAN KEUANGAN</div>
+        <div class="print-subtitle">Periode: ${MONTHS[m]} ${y}</div>
+        <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
+    }
+    window.print();
   });
-  document.getElementById('laporan-tahun').addEventListener('change', () => {
-    renderAll(Number(document.getElementById('laporan-bulan').value), Number(document.getElementById('laporan-tahun').value));
+}
+
+/* ========================
+   PENJELASAN LAPORAN KEUANGAN — halaman terpisah, dirancang untuk dicetak
+   ======================== */
+
+/* Satu entri per baris angka di kartu "Laporan Laba / Rugi".
+   Fungsi `hitung` sengaja menyalin rumus di buildLaporan() persis apa adanya,
+   supaya halaman ini menjelaskan perhitungan yang benar-benar dipakai. */
+const ASAL_LABA_RUGI = [
+  { sisi: 'masuk', baris: 'Penjualan Luar Kota', key: 'barangTerjual',
+    menu: 'Rute → <i>nama rute</i> → Barang Terjual → <i>pilih perjalanan</i>',
+    kolom: 'Jumlah, Harga Jual',
+    rumus: 'Jumlah × Harga Jual pada setiap baris barang, lalu semuanya dijumlahkan',
+    hitung: (r) => r.reduce((s, b) => s + Number(b.jumlah || 0) * Number(b.hargaJual || 0), 0) },
+
+  { sisi: 'masuk', baris: 'Uang Masuk (Lainnya)', key: 'uangMasuk',
+    menu: 'Rute → <i>nama rute</i> → Uang Masuk → <i>pilih perjalanan</i>',
+    kolom: 'Jumlah',
+    rumus: 'Kolom Jumlah dijumlahkan apa adanya',
+    hitung: (r) => sumField(r, 'jumlah') },
+
+  { sisi: 'keluar', baris: 'Uang Keluar (Toko Utama)', key: 'uangKeluar',
+    menu: 'Toko Utama → Uang Keluar → <i>pilih periode</i>',
+    kolom: 'Jumlah',
+    rumus: 'Kolom Jumlah dijumlahkan apa adanya',
+    hitung: (r) => sumField(r, 'jumlah') },
+
+  { sisi: 'keluar', baris: 'Uang Keluar (Luar Kota)', key: 'uangKeluarLK',
+    menu: 'Rute → <i>nama rute</i> → Uang Keluar → <i>pilih perjalanan</i>',
+    kolom: 'Jumlah',
+    rumus: 'Kolom Jumlah dijumlahkan apa adanya',
+    hitung: (r) => sumField(r, 'jumlah') },
+
+  { sisi: 'keluar', baris: 'Pembelian Barang Masuk (Modal Stok)', key: 'barangMasuk',
+    menu: 'Toko Utama → Barang Masuk',
+    kolom: 'Jumlah, Harga Modal',
+    rumus: 'Jumlah (satuan utama) × Harga Modal pada setiap baris barang, lalu dijumlahkan',
+    hitung: (r) => r.reduce((s, b) => s + Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0), 0) },
+];
+
+/* Baris di kartu "Utang & Piutang". Semuanya di luar hitungan laba/rugi. */
+const ASAL_UTANG_PIUTANG = [
+  { baris: 'Piutang Baru (Toko Utama)', key: 'piutang', arah: 'plus',
+    menu: 'Toko Utama → Piutang', arti: 'Uang toko yang masih dipegang pembeli' },
+  { baris: 'Piutang Baru (Luar Kota)', key: 'rekapPiutang', arah: 'plus',
+    menu: 'Rute → <i>nama rute</i> → Rekap Piutang → <i>pilih perjalanan</i>',
+    arti: 'Uang toko yang masih dipegang pelanggan rute' },
+  { baris: 'Utang Baru', key: 'utang', arah: 'minus',
+    menu: 'Toko Utama → Utang', arti: 'Kewajiban toko ke supplier' },
+  { baris: 'Tagihan (Luar Kota)', key: 'tagihan', arah: 'minus',
+    menu: 'Rute → <i>nama rute</i> → Tagihan → <i>pilih perjalanan</i>',
+    arti: 'Tagihan yang muncul selama perjalanan rute' },
+];
+
+function renderPenjelasanLaporan() {
+  const content = document.getElementById('content');
+  const now = new Date();
+
+  const inBulan = (arr, m, y) => arr.filter(x => {
+    const g = getMonthYear(x.tanggal);
+    return g.m === m && g.y === y;
   });
+
+  /* baris transaksi terbesar bulan itu — supaya angkanya bisa ditelusuri ke catatan nyata */
+  function contohTerbesar(key, rows) {
+    if (!rows.length) return '—';
+    const nilai = (b) => key === 'barangTerjual' ? Number(b.jumlah || 0) * Number(b.hargaJual || 0)
+                 : key === 'barangMasuk'  ? Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0)
+                 : Number(b.jumlah || 0);
+    const top = rows.slice().sort((a, b) => nilai(b) - nilai(a))[0];
+    const nama = top.keterangan || top.nama || top.pelanggan || top.supplier || '(tanpa keterangan)';
+    return `${formatDate(top.tanggal)} — ${e(nama)} — <b>${fmt(nilai(top))}</b>`;
+  }
+
+  function isiPenjelasan(m, y) {
+    const wadah = document.getElementById('penjelasan-isi');
+    if (!wadah) return;
+
+    const lp   = buildLaporan(m, y);
+    const nama = `${MONTHS[m]} ${y}`;
+
+    const rowsOf = (key) => inBulan(store[key] || [], m, y);
+
+    const masuk  = ASAL_LABA_RUGI.filter(x => x.sisi === 'masuk');
+    const keluar = ASAL_LABA_RUGI.filter(x => x.sisi === 'keluar');
+
+    const barisTabel = (x, i) => {
+      const rows = rowsOf(x.key);
+      const nilai = x.hitung(rows);
+      const pos = x.sisi === 'masuk';
+      return `
+        <tr>
+          <td class="pj-no">${i + 1}</td>
+          <td class="pj-baris">
+            <span class="pj-dot ${pos ? 'is-plus' : 'is-minus'}"></span>${e(x.baris)}
+          </td>
+          <td class="pj-menu">${x.menu}</td>
+          <td class="pj-rumus">${e(x.rumus)}<div class="pj-kolom">kolom dipakai: ${e(x.kolom)}</div></td>
+          <td class="pj-jml">${rows.length}</td>
+          <td class="pj-nilai ${pos ? 'amount-positive' : 'amount-negative'}">${pos ? '+' : '−'}${fmt(nilai)}</td>
+        </tr>
+        <tr class="pj-contoh-row">
+          <td></td>
+          <td colspan="5" class="pj-contoh">Transaksi terbesar bulan ini: ${contohTerbesar(x.key, rows)}</td>
+        </tr>`;
+    };
+
+    const barisUP = (x, i) => {
+      const rows = rowsOf(x.key);
+      const nilai = sumField(rows, 'jumlah');
+      return `
+        <tr>
+          <td class="pj-no">${i + 1}</td>
+          <td class="pj-baris">${e(x.baris)}<div class="pj-kolom">${e(x.arti)}</div></td>
+          <td class="pj-menu">${x.menu}</td>
+          <td class="pj-rumus">Kolom Jumlah dijumlahkan apa adanya</td>
+          <td class="pj-jml">${rows.length}</td>
+          <td class="pj-nilai">${fmt(nilai)}</td>
+        </tr>`;
+    };
+
+    const labaPos = lp.labaBersih >= 0;
+
+    wadah.innerHTML = `
+      <div class="print-header">
+        <div class="print-title">Toko Panglima Bangunan — PENJELASAN LAPORAN KEUANGAN</div>
+        <div class="print-subtitle">Sumber data setiap angka pada laporan bulan ${e(nama)}</div>
+        <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>
+      </div>
+
+      <!-- ====== 1. ALUR ====== -->
+      <div class="card pj-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${ico('account_tree')} 1. Alur Perhitungan Laba / Rugi</div>
+            <div class="pj-sub">Hanya lima jenis catatan yang memengaruhi untung-rugi. Selain kelima ini, tidak ada yang ikut dihitung.</div>
+          </div>
+        </div>
+        <div class="pj-alur">
+          <div class="pj-kolom-alur">
+            <div class="pj-grup-head is-plus">${ico('south_west',16)} PENDAPATAN</div>
+            ${masuk.map(x => `<div class="pj-node is-plus">
+                <div class="pj-node-nama">${e(x.baris)}</div>
+                <div class="pj-node-nilai">${fmt(x.hitung(rowsOf(x.key)))}</div>
+              </div>`).join('')}
+            <div class="pj-total is-plus">Total Pendapatan <b>${fmt(lp.totalPendapatan)}</b></div>
+          </div>
+
+          <div class="pj-operator pj-op-kurang">
+            <div class="pj-op-simbol">−</div>
+            <div class="pj-op-teks">dikurangi</div>
+          </div>
+
+          <div class="pj-kolom-alur">
+            <div class="pj-grup-head is-minus">${ico('north_east',16)} PENGELUARAN</div>
+            ${keluar.map(x => `<div class="pj-node is-minus">
+                <div class="pj-node-nama">${e(x.baris)}</div>
+                <div class="pj-node-nilai">${fmt(x.hitung(rowsOf(x.key)))}</div>
+              </div>`).join('')}
+            <div class="pj-total is-minus">Total Pengeluaran <b>${fmt(lp.totalPengeluaran)}</b></div>
+          </div>
+
+          <div class="pj-operator pj-op-sama">
+            <div class="pj-op-simbol">=</div>
+            <div class="pj-op-teks">hasilnya</div>
+          </div>
+
+          <div class="pj-hasil ${labaPos ? 'is-plus' : 'is-minus'}">
+            <div class="pj-hasil-label">${labaPos ? 'UNTUNG' : 'RUGI'} BULAN ${MONTHS[m].toUpperCase()} ${y}</div>
+            <div class="pj-hasil-nilai">${fmt(Math.abs(lp.labaBersih))}</div>
+            <div class="pj-hasil-rumus">${fmt(lp.totalPendapatan)} − ${fmt(lp.totalPengeluaran)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== 2. ASAL DATA LABA RUGI ====== -->
+      <div class="card pj-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${ico('table_view')} 2. Asal Setiap Angka di Laporan Laba / Rugi</div>
+            <div class="pj-sub">Angka pada kolom terakhir adalah nilai bulan ${e(nama)}. Buka menu yang tertulis untuk melihat catatan aslinya.</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="pj-tabel">
+            <thead>
+              <tr>
+                <th style="width:34px">No</th>
+                <th>Baris di Laporan</th>
+                <th>Diambil dari Menu</th>
+                <th>Cara Dihitung</th>
+                <th style="width:70px">Jml<br>Catatan</th>
+                <th style="width:130px">Nilai ${e(MONTHS[m])}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ASAL_LABA_RUGI.map(barisTabel).join('')}
+              <tr class="pj-baris-total">
+                <td></td>
+                <td colspan="4">${labaPos ? 'Estimasi Keuntungan' : 'Estimasi Kerugian'} Bersih ${e(nama)}</td>
+                <td class="pj-nilai ${labaPos ? 'amount-positive' : 'amount-negative'}">${fmt(Math.abs(lp.labaBersih))}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ====== 3. UTANG PIUTANG ====== -->
+      <div class="card pj-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${ico('menu_book')} 3. Asal Angka Utang &amp; Piutang</div>
+            <div class="pj-sub">Keempat angka ini <b>tidak</b> ikut menambah atau mengurangi untung-rugi. Sifatnya catatan janji bayar, bukan uang yang sudah berpindah.</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="pj-tabel">
+            <thead>
+              <tr>
+                <th style="width:34px">No</th>
+                <th>Baris di Laporan</th>
+                <th>Diambil dari Menu</th>
+                <th>Cara Dihitung</th>
+                <th style="width:70px">Jml<br>Catatan</th>
+                <th style="width:130px">Nilai ${e(MONTHS[m])}</th>
+              </tr>
+            </thead>
+            <tbody>${ASAL_UTANG_PIUTANG.map(barisUP).join('')}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ====== 4. SALDO BELUM LUNAS ====== -->
+      <div class="card pj-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${ico('savings')} 4. Sisa Saldo Belum Lunas</div>
+            <div class="pj-sub">Berbeda dengan seluruh angka di atas, dua angka ini <b>tidak terikat bulan mana pun</b>.</div>
+          </div>
+        </div>
+        <div class="pj-saldo">
+          <div class="pj-saldo-item">
+            <div class="pj-saldo-nama">Piutang Belum Lunas</div>
+            <div class="pj-saldo-nilai amount-positive">${fmt(lp.saldoPiutang)}</div>
+            <div class="pj-saldo-ket">
+              Seluruh catatan di <b>Toko Utama → Piutang</b> dan <b>Rute → Rekap Piutang</b>,
+              dari tanggal berapa pun, yang statusnya <b>belum</b> "Lunas".
+              Angkanya turun sendiri begitu status catatan diubah jadi "Lunas".
+            </div>
+          </div>
+          <div class="pj-saldo-item">
+            <div class="pj-saldo-nama">Utang Belum Lunas</div>
+            <div class="pj-saldo-nilai amount-negative">${fmt(lp.saldoUtang)}</div>
+            <div class="pj-saldo-ket">
+              Seluruh catatan di <b>Toko Utama → Utang</b>, dari tanggal berapa pun,
+              yang statusnya <b>belum</b> "Lunas".
+              Catatan <b>Tagihan (Luar Kota)</b> tidak ikut dijumlahkan di sini.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== 5. ATURAN & CATATAN PENTING ====== -->
+      <div class="card pj-card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${ico('rule')} 5. Aturan yang Perlu Diketahui</div>
+            <div class="pj-sub">Hal-hal yang paling sering menimbulkan salah paham saat membaca laporan.</div>
+          </div>
+        </div>
+        <ol class="pj-aturan">
+          <li>
+            <b>Yang menentukan bulan adalah kolom Tanggal pada catatan itu sendiri</b> — bukan tanggal
+            catatan diinput, dan bukan rentang periode/perjalanannya. Jadi satu perjalanan
+            tanggal 28 Mei – 3 Juni akan terbagi ke dua laporan bulanan: yang bertanggal Mei masuk
+            laporan Mei, yang bertanggal Juni masuk laporan Juni.
+          </li>
+          <li>
+            <b>Barang Masuk dihitung penuh sebagai pengeluaran di bulan barang itu dibeli</b>,
+            bukan di bulan barang itu laku. Akibatnya, bulan dengan belanja stok besar bisa terlihat
+            rugi walaupun barangnya masih utuh di gudang. Nilai stok yang tersisa dapat dilihat di
+            menu <b>Stok Toko</b>.
+          </li>
+          <li>
+            <b>Penjualan dihitung saat barang keluar</b>, baik dibayar tunai maupun kredit.
+            Karena itu, kalau nanti pelanggan melunasi utangnya, <u>jangan</u> dicatat lagi sebagai
+            Uang Masuk — cukup ubah status piutangnya menjadi "Lunas". Kalau dicatat dua kali,
+            uang yang sama akan terhitung dua kali sebagai pendapatan.
+            Menu <b>Uang Masuk</b> dipakai untuk penerimaan di luar penjualan barang, misalnya DP proyek
+            atau pelunasan piutang lama yang penjualannya belum pernah tercatat di aplikasi ini.
+          </li>
+          <li>
+            <b>Utang, Piutang, dan Tagihan tidak memengaruhi laba/rugi.</b> Ketiganya baru berpengaruh
+            ke uang toko saat benar-benar dibayar, dan pembayaran itulah yang dicatat di menu
+            Uang Masuk atau Uang Keluar.
+          </li>
+          <li>
+            <b>Semua angka dihitung ulang dari catatan mentah setiap kali halaman dibuka.</b>
+            Tidak ada angka yang disimpan terpisah. Begitu satu catatan diperbaiki, dihapus, atau
+            ditambah, laporan bulan itu langsung ikut berubah — tidak perlu menghitung ulang manual.
+          </li>
+          <li>
+            <b>Angka di Dashboard dan di Laporan Keuangan memakai rumus yang sama persis</b>,
+            sehingga keduanya tidak akan pernah berbeda untuk bulan yang sama.
+          </li>
+        </ol>
+      </div>
+
+      <div class="pj-footer">
+        Dicetak dari aplikasi Toko Panglima Bangunan &middot; Penjelasan Laporan Keuangan bulan ${e(nama)}
+      </div>`;
+  }
+
+  const allMonths = getLaporanMonths();
+  let selM = now.getMonth(), selY = now.getFullYear();
+  if (!allMonths.some(x => x.m === selM && x.y === selY)) {
+    const last = allMonths[allMonths.length - 1];
+    if (last) { selM = last.m; selY = last.y; }
+  }
+  const bulanOptions = [...new Set(allMonths.map(x => x.m))].sort((a, b) => a - b);
+  const tahunOptions = [...new Set(allMonths.map(x => x.y))].sort((a, b) => a - b);
+
+  content.innerHTML = `
+  <div class="page-anim">
+    <div class="page-header no-print" style="align-items:center;">
+      <div>
+        <div class="page-title">${ico('help_center',26)} Penjelasan Laporan Keuangan</div>
+        <div class="page-subtitle">Dari mana setiap angka di Laporan Keuangan berasal</div>
+      </div>
+      <div class="filter-bar no-print" style="display:flex; align-items:center; gap:8px;">
+        <label style="font-size:13px; color:var(--text-muted); font-weight:600;">Bulan:</label>
+        <select class="form-select" id="pj-bulan" style="width:150px;">
+          ${bulanOptions.map(m => `<option value="${m}" ${m === selM ? 'selected' : ''}>${MONTHS[m]}</option>`).join('')}
+        </select>
+        <select class="form-select" id="pj-tahun" style="width:100px;">
+          ${tahunOptions.map(y => `<option value="${y}" ${y === selY ? 'selected' : ''}>${y}</option>`).join('')}
+        </select>
+        <button class="btn btn-secondary" id="pj-cetak">${ico('print',17)} Cetak</button>
+      </div>
+    </div>
+    <div id="penjelasan-isi"></div>
+  </div>`;
+
+  isiPenjelasan(selM, selY);
+
+  const ulang = () => isiPenjelasan(
+    Number(document.getElementById('pj-bulan').value),
+    Number(document.getElementById('pj-tahun').value)
+  );
+  document.getElementById('pj-bulan').addEventListener('change', ulang);
+  document.getElementById('pj-tahun').addEventListener('change', ulang);
+  document.getElementById('pj-cetak').addEventListener('click', () => window.print());
 }
 
 /* ========================
    INIT
    ======================== */
-updateDate();
-renderRuteSidebar();
-navigate('dashboard', null, { replace: true });
-document.getElementById('btn-global-back').addEventListener('click', () => {
-  if (navDepth > 0) history.back();
-});
+async function muatDataAwal() {
+  try {
+    const res = await fetch('api/data.php', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    // Belum login → ke halaman masuk
+    if (res.status === 401) { window.location.replace('login.html'); return false; }
+
+    // Bukan respons JSON (mis. server tanpa PHP) → mode demo
+    const tipe = res.headers.get('content-type') || '';
+    if (!res.ok || !tipe.includes('application/json')) throw new Error('API tidak tersedia');
+
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Gagal memuat data');
+
+    store     = Object.assign(defaultStore(), data.store || {});
+    csrfToken = data.csrf || '';
+    storageMode = 'server';
+
+    const namaEl = document.getElementById('user-nama');
+    if (namaEl && data.user) {
+      namaEl.textContent = data.user.nama || 'Admin';
+      // di layar sempit namanya disembunyikan, jadi disimpan juga sebagai tooltip
+      const chip = document.getElementById('user-chip');
+      if (chip) chip.title = (data.user.nama || 'Admin') + ' — Super Admin';
+    }
+    return true;
+
+  } catch (err) {
+    // Fallback: jalan tanpa backend (untuk mencoba tampilan di komputer sendiri).
+    storageMode = 'lokal';
+    store = loadStoreLokal();
+    if (!store.barangMasuk || !store.barangMasuk.length) {
+      seedData();          // isi data contoh sekali saja
+    }
+    return true;
+  }
+}
+
+/* ========================
+   PENCARIAN GLOBAL (topbar)
+   ======================== */
+function cariGlobal(kata) {
+  const q = kata.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const cocok = (v) => v && String(v).toLowerCase().includes(q);
+  const namaRute = (id) => (store.ruteList.find(r => r.id === id) || {}).nama || 'Luar Kota';
+  const hasil = [];
+
+  // Barang — digabung per nama supaya tidak berulang
+  const barang = new Map();
+  (store.barangMasuk || []).forEach(b => {
+    if (cocok(b.nama) && !barang.has(b.nama)) barang.set(b.nama, b);
+  });
+  [...barang.values()].slice(0, 5).forEach(b => hasil.push({
+    grup: 'Barang', ikon: 'inventory_2', nama: b.nama,
+    ket: `Supplier ${b.supplier || '—'} · ${formatDate(b.tanggal)}`,
+    nilai: fmt(Number(b.hargaJual || b.hargaJual1 || 0)),
+    aksi: () => navigate('stok-toko', null, { cari: b.nama }),
+  }));
+
+  // Rute
+  (store.ruteList || []).filter(r => cocok(r.nama)).slice(0, 4).forEach(r => hasil.push({
+    grup: 'Rute', ikon: 'local_shipping', nama: `Rute ${r.nama}`,
+    ket: `${(store.perjalananList || []).filter(p => p.ruteId === r.id).length} perjalanan tercatat`,
+    nilai: '', aksi: () => navigate('pj-barang-terjual', r.id),
+  }));
+
+  // Faktur / pelanggan pada piutang, rekap piutang, dan penjualan
+  const sumber = [
+    { key: 'piutang',      label: 'Piutang',       ikon: 'credit_card',  page: 'piutang' },
+    { key: 'rekapPiutang', label: 'Rekap Piutang', ikon: 'credit_card',  page: 'rekap-piutang' },
+    { key: 'barangTerjual',label: 'Penjualan',     ikon: 'receipt_long', page: 'barang-terjual' },
+  ];
+  sumber.forEach(s => {
+    (store[s.key] || [])
+      .filter(x => cocok(x.noFaktur) || cocok(x.nama) || cocok(x.pelanggan))
+      .slice(-4).reverse()
+      .forEach(x => hasil.push({
+        grup: s.label, ikon: s.ikon,
+        nama: x.noFaktur ? `${x.noFaktur} — ${x.nama || x.pelanggan || ''}` : (x.nama || x.pelanggan || '—'),
+        ket: `${formatDate(x.tanggal)}${x.ruteId ? ' · ' + namaRute(x.ruteId) : ''}`,
+        nilai: fmt(s.key === 'barangTerjual'
+                   ? Number(x.jumlah || 0) * Number(x.hargaJual || 0)
+                   : Number(x.jumlah || 0)),
+        aksi: () => navigate(s.page, x.ruteId || null),
+      }));
+  });
+
+  return hasil.slice(0, 12);
+}
+
+function wireCariGlobal() {
+  const input = document.getElementById('cari-global');
+  const box   = document.getElementById('cari-hasil');
+  if (!input || !box) return;
+
+  const tutup = () => { box.hidden = true; box.innerHTML = ''; };
+
+  const tampilkan = () => {
+    const hasil = cariGlobal(input.value);
+    if (!input.value.trim() || input.value.trim().length < 2) return tutup();
+
+    if (!hasil.length) {
+      box.innerHTML = `<div class="cari-kosong">Tidak ada yang cocok dengan “${e(input.value.trim())}”</div>`;
+      box.hidden = false;
+      return;
+    }
+
+    let html = '', grupTerakhir = '';
+    hasil.forEach((h, i) => {
+      if (h.grup !== grupTerakhir) { html += `<div class="cari-grup">${e(h.grup)}</div>`; grupTerakhir = h.grup; }
+      html += `<button class="cari-item" data-i="${i}">
+        ${ico(h.ikon, 18)}
+        <span class="cari-item-teks">
+          <span class="cari-item-nama">${e(h.nama)}</span>
+          <span class="cari-item-ket">${e(h.ket)}</span>
+        </span>
+        ${h.nilai ? `<span class="cari-item-nilai">${h.nilai}</span>` : ''}
+      </button>`;
+    });
+    box.innerHTML = html;
+    box.hidden = false;
+    box.querySelectorAll('.cari-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const h = hasil[Number(btn.dataset.i)];
+        tutup(); input.value = '';
+        if (h && h.aksi) h.aksi();
+      });
+    });
+  };
+
+  input.addEventListener('input', tampilkan);
+  input.addEventListener('focus', tampilkan);
+  input.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') { input.value = ''; tutup(); input.blur(); }
+    if (ev.key === 'ArrowDown') {
+      const p = box.querySelector('.cari-item');
+      if (p) { ev.preventDefault(); p.focus(); }
+    }
+  });
+  document.addEventListener('click', (ev) => {
+    if (!ev.target.closest('#topbar-search')) tutup();
+  });
+}
+
+(async function mulai() {
+  const siap = await muatDataAwal();
+  if (!siap) return;
+
+  updateDate();
+  wireCariGlobal();
+  renderRuteSidebar();
+  navigate('dashboard', null, { replace: true });
+  if (storageMode === 'lokal') setSaveStatus('lokal');
+
+  document.getElementById('btn-global-back').addEventListener('click', () => {
+    if (navDepth > 0) history.back();
+  });
+
+  const btnKeluar = document.getElementById('btn-logout');
+  if (btnKeluar) {
+    btnKeluar.addEventListener('click', async () => {
+      if (!confirm('Keluar dari aplikasi?')) return;
+      try {
+        await fetch('api/logout.php', { method: 'POST', credentials: 'same-origin' });
+      } catch (e) { /* tetap arahkan ke login */ }
+      window.location.replace('login.html');
+    });
+  }
+})();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Toko Panglima - Sistem Pencatatan Toko Bangunan</title>
+  <title>SI Panglima — Toko Panglima Bangunan</title>
   <meta name="description" content="Sistem pencatatan keuangan Toko Panglima Bangunan – mudah, sederhana, dan terstruktur." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,25 +12,28 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Lapisan gelap saat menu terbuka di layar kecil -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="logo">
         <div class="logo-icon"><span class="material-symbols-outlined">architecture</span></div>
         <div class="logo-text">
-          <span class="logo-name">Toko Panglima</span>
-          <span class="logo-sub">Bangunan</span>
+          <span class="logo-name">SI Panglima</span>
+          <span class="logo-sub">Toko Panglima Bangunan</span>
         </div>
       </div>
     </div>
 
     <nav class="sidebar-nav">
-      <div class="nav-section-label">Utama</div>
       <a class="nav-item active" data-page="dashboard" id="nav-dashboard">
         <span class="nav-icon"><span class="material-symbols-outlined">dashboard</span></span>
         <span>Dashboard</span>
       </a>
 
+      <div class="nav-section-label">Operasional</div>
       <div class="nav-section-label collapsible" onclick="toggleSubmenu('submenu-toko')">
         <span>Toko Utama</span>
         <span class="chevron" id="chevron-toko">▼</span>
@@ -58,7 +61,7 @@
         <!-- Rute Luar Kota will be rendered here dynamically -->
       </div>
 
-      <div class="nav-section-label">Laporan &amp; Pengaturan</div>
+      <div class="nav-section-label">Inventory &amp; Finance</div>
       <a class="nav-item" data-page="stok-toko" id="nav-stok-toko">
         <span class="nav-icon"><span class="material-symbols-outlined">shelves</span></span>
         <span>Stok Toko</span>
@@ -74,27 +77,28 @@
     </nav>
     
     <script>
-      function toggleSubmenu(id) {
-        const el = document.getElementById(id);
-        const chev = document.getElementById(id.replace('submenu', 'chevron'));
-        if (el.classList.contains('open')) {
-          el.classList.remove('open');
-          if (chev) chev.classList.remove('open');
-        } else {
-          el.classList.add('open');
-          if (chev) chev.classList.add('open');
+      function setSubmenuOpen(el, open) {
+        if (!el) return;
+        el.classList.toggle('open', open);
+        const chev = document.getElementById(el.id.replace('submenu', 'chevron'));
+        if (chev) {
+          chev.classList.toggle('open', open);
+          // tandai tombol seksinya supaya jelas sedang terbuka
+          const header = chev.closest('.nav-section-label');
+          if (header) header.classList.toggle('is-open', open);
         }
       }
-      
-      // Auto-open submenu if it contains the active menu
+
+      function toggleSubmenu(id) {
+        const el = document.getElementById(id);
+        if (el) setSubmenuOpen(el, !el.classList.contains('open'));
+      }
+
+      // Buka otomatis submenu yang berisi menu aktif
       document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           document.querySelectorAll('.submenu').forEach(sub => {
-            if(sub.querySelector('.nav-item.active')) {
-              sub.classList.add('open');
-              const chev = document.getElementById(sub.id.replace('submenu', 'chevron'));
-              if(chev) chev.classList.add('open');
-            }
+            if (sub.querySelector('.nav-item.active')) setSubmenuOpen(sub, true);
           });
         }, 100);
       });
@@ -112,10 +116,26 @@
         <span class="material-symbols-outlined" style="font-size:17px">arrow_back</span>Kembali
       </button>
       <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-search no-print" id="topbar-search">
+        <span class="material-symbols-outlined">search</span>
+        <input type="search" id="cari-global" autocomplete="off" aria-label="Cari data"
+               placeholder="Cari data barang, rute, atau invoice..." />
+        <div class="cari-hasil" id="cari-hasil" hidden></div>
+      </div>
       <div class="topbar-right">
+        <div class="save-status no-print" id="save-status" data-state="idle" aria-live="polite"></div>
         <div class="date-display" id="date-display"></div>
-        <div class="user-badge" title="Admin Toko">
-          <span class="material-symbols-outlined" style="font-size:19px">person</span>
+        <div class="user-chip no-print" id="user-chip" title="Admin">
+          <span class="user-badge">
+            <span class="material-symbols-outlined" style="font-size:19px">person</span>
+          </span>
+          <span class="user-teks">
+            <span class="user-nama" id="user-nama">Admin</span>
+            <span class="user-peran">Super Admin</span>
+          </span>
+          <button class="btn-logout" id="btn-logout" title="Keluar dari aplikasi" aria-label="Keluar">
+            <span class="material-symbols-outlined" style="font-size:18px">logout</span>
+          </button>
         </div>
       </div>
     </header>
