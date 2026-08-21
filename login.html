@@ -62,6 +62,18 @@
     }
     .alert.show { display: flex; }
     .alert .material-symbols-outlined { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .demo-note {
+      display: none;
+      gap: 10px;
+      background: var(--amber-soft); color: var(--amber);
+      border-radius: var(--r-sm); padding: 12px 14px;
+      font-size: 13px; line-height: 1.5; margin-bottom: 18px;
+    }
+    .demo-note.show { display: flex; }
+    .demo-note .material-symbols-outlined { font-size: 19px; flex-shrink: 0; margin-top: 1px; color: var(--amber); }
+    .demo-note b { display: block; font-size: 13.5px; margin-bottom: 3px; }
+    .demo-note p { margin: 0; color: var(--muted); }
+
     .login-foot {
       margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border);
       display: flex; align-items: center; gap: 7px;
@@ -87,6 +99,20 @@
       <span class="material-symbols-outlined">error</span>
       <span id="alert-msg"></span>
     </div>
+
+    <div class="demo-note" id="demo-note">
+      <span class="material-symbols-outlined">science</span>
+      <div>
+        <b>Mode demo</b>
+        <p>Versi ini hanya untuk melihat tampilan aplikasi. Backend dan database
+           tidak tersedia di sini, jadi data yang kamu isi hanya tersimpan di
+           browser ini dan tidak dikirim ke mana pun.</p>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-login" type="button" id="btn-demo" hidden>
+      Lihat Demo
+    </button>
 
     <form id="login-form" autocomplete="on">
       <div class="field">

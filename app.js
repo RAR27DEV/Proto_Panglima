@@ -3667,6 +3667,15 @@ function wireCariGlobal() {
   const btnKeluar = document.getElementById('btn-logout');
   if (btnKeluar) {
     btnKeluar.addEventListener('click', async () => {
+      // Mode demo tidak punya sesi server, jadi "keluar" berarti
+      // membersihkan data contoh di browser ini.
+      if (storageMode === 'lokal') {
+        if (!confirm('Mulai ulang demo? Data yang kamu isi di browser ini akan dihapus.')) return;
+        try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+        window.location.reload();
+        return;
+      }
+
       if (!confirm('Keluar dari aplikasi?')) return;
       try {
         await fetch('api/logout.php', { method: 'POST', credentials: 'same-origin' });
