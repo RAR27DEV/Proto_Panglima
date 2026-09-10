@@ -34,7 +34,7 @@
       </a>
 
       <div class="nav-section-label">Operasional</div>
-      <div class="nav-section-label collapsible" onclick="toggleSubmenu('submenu-toko')">
+      <div class="nav-section-label collapsible" data-submenu="submenu-toko">
         <span>Toko Utama</span>
         <span class="chevron" id="chevron-toko">▼</span>
       </div>
@@ -75,34 +75,6 @@
         <span>Manajemen Rute</span>
       </a>
     </nav>
-    
-    <script>
-      function setSubmenuOpen(el, open) {
-        if (!el) return;
-        el.classList.toggle('open', open);
-        const chev = document.getElementById(el.id.replace('submenu', 'chevron'));
-        if (chev) {
-          chev.classList.toggle('open', open);
-          // tandai tombol seksinya supaya jelas sedang terbuka
-          const header = chev.closest('.nav-section-label');
-          if (header) header.classList.toggle('is-open', open);
-        }
-      }
-
-      function toggleSubmenu(id) {
-        const el = document.getElementById(id);
-        if (el) setSubmenuOpen(el, !el.classList.contains('open'));
-      }
-
-      // Buka otomatis submenu yang berisi menu aktif
-      document.addEventListener("DOMContentLoaded", () => {
-        setTimeout(() => {
-          document.querySelectorAll('.submenu').forEach(sub => {
-            if (sub.querySelector('.nav-item.active')) setSubmenuOpen(sub, true);
-          });
-        }, 100);
-      });
-    </script>
   </aside>
 
   <!-- Main Content -->

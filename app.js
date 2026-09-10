@@ -61,7 +61,7 @@ function formatStock(stokKecil, konversi, sat1, sat2) {
 function statusBadgeCell(key, item) {
   const isLunas = item.status === 'Lunas';
   return `<td>
-    <span class="badge ${isLunas ? 'badge-green' : 'badge-orange'}" style="cursor:pointer" onclick="toggleLunas('${key}','${item.id}')" title="Klik untuk ubah status">
+    <span class="badge ${isLunas ? 'badge-green' : 'badge-orange'}" data-aksi="lunas" data-key="${key}" data-id="${item.id}" title="Klik untuk ubah status">
       ${isLunas ? '&#10003; Lunas' : 'Belum Lunas'}
     </span>
   </td>`;
@@ -94,12 +94,12 @@ let csrfToken   = '';
 
 function loadStoreLokal() {
   let s = null;
-  try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) {}
+  try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (err) {}
   return s || defaultStore();
 }
 
 function saveStoreLokal() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (err) {}
 }
 
 /* ── Simpan ke server (ditunda sesaat supaya beberapa perubahan
@@ -136,10 +136,10 @@ async function kirimKeServer() {
 }
 
 /* Peringatan kalau menutup tab saat masih ada yang belum tersimpan */
-window.addEventListener('beforeunload', (e) => {
+window.addEventListener('beforeunload', (ev) => {
   if (_savePending || saveStatusEl?.dataset.state === 'menyimpan') {
-    e.preventDefault();
-    e.returnValue = '';
+    ev.preventDefault();
+    ev.returnValue = '';
   }
 });
 
@@ -505,10 +505,10 @@ function pushNavState(state, opts = {}) {
   updateBackButton();
 }
 
-window.addEventListener('popstate', (e) => {
+window.addEventListener('popstate', (ev) => {
   navDepth = Math.max(0, navDepth - 1);
   updateBackButton();
-  const state = e.state;
+  const state = ev.state;
   if (!state || state.type === 'page') {
     navigate(state ? state.page : 'dashboard', state ? state.ruteId : null, { fromHistory: true });
   } else if (state.type === 'pjCategory') {
@@ -529,6 +529,7 @@ function navigate(page, ruteId = null, opts = {}) {
       el.classList.toggle('active', matchPage);
     }
   });
+  bukaSubmenuAktif();
 
   let title = pageTitles[page] || page;
   if (ruteId) {
@@ -561,11 +562,11 @@ function navigate(page, ruteId = null, opts = {}) {
 function renderRuteSidebar() {
   const container = document.getElementById('dynamic-rute-sidebar');
   if (!container) return;
-  
+
   let html = '';
   store.ruteList.forEach(rute => {
     html += `
-      <div class="nav-section-label collapsible" onclick="toggleSubmenu('submenu-rute-${rute.id}')">
+      <div class="nav-section-label collapsible" data-submenu="submenu-rute-${rute.id}">
         <span style="display:flex;align-items:center;gap:7px;">${ico('local_shipping', 17)}${e(rute.nama)}</span>
         <span class="chevron" id="chevron-rute-${rute.id}">▼</span>
       </div>
@@ -654,11 +655,81 @@ window.addEventListener('resize', () => {
 /* ========================
    NAV ITEMS DELEGATION
    ======================== */
-document.querySelector('.sidebar-nav').addEventListener('click', (e) => {
-  const item = e.target.closest('.nav-item');
+document.querySelector('.sidebar-nav').addEventListener('click', (ev) => {
+  const item = ev.target.closest('.nav-item');
   if (item && item.dataset.page) {
     navigate(item.dataset.page, item.dataset.rute);
+    return;
   }
+  // Judul seksi yang bisa dilipat (Toko Utama, tiap rute)
+  const kepala = ev.target.closest('.nav-section-label[data-submenu]');
+  if (kepala) {
+    const sub = document.getElementById(kepala.dataset.submenu);
+    setSubmenuOpen(sub, !sub.classList.contains('open'));
+  }
+});
+
+/* Buka/tutup satu submenu beserta tanda panah dan judul seksinya. */
+function setSubmenuOpen(el, open) {
+  if (!el) return;
+  el.classList.toggle('open', open);
+  const chev = document.getElementById(el.id.replace('submenu', 'chevron'));
+  if (!chev) return;
+  chev.classList.toggle('open', open);
+  // tandai judul seksinya supaya jelas sedang terbuka
+  chev.closest('.nav-section-label')?.classList.toggle('is-open', open);
+}
+
+/* Submenu yang memuat menu aktif ikut terbuka sendiri. Dipanggil dari
+   navigate(), jadi juga berlaku saat pindah halaman lewat pencarian. */
+function bukaSubmenuAktif() {
+  document.querySelectorAll('.submenu').forEach(sub => {
+    if (sub.querySelector('.nav-item.active')) setSubmenuOpen(sub, true);
+  });
+}
+
+/* ========================
+   AKSI LEWAT DELEGASI
+   ========================
+   Tombol dan sel yang bisa diklik menandai dirinya dengan atribut
+   `data-aksi`, bukan `onclick=` di HTML. Satu penangan di `document` yang
+   membacanya, jadi markup yang digambar ulang (tabel, isi modal, sidebar
+   rute) tidak perlu dipasangi listener lagi — dan Content-Security-Policy
+   boleh tetap melarang skrip inline. */
+const AKSI_KLIK = {
+  'tutup-modal':      ()   => closeModal(),
+  'lunas':            (el) => toggleLunas(el.dataset.key, el.dataset.id),
+  'ubah':             (el) => openEditModal(el.dataset.key, el.dataset.id),
+  'hapus':            (el) => deleteItem(el.dataset.key, el.dataset.id),
+  'buka-perjalanan':  (el) => openPerjalananCategory(el.dataset.rute || null, el.dataset.pj, el.dataset.key),
+  'ubah-perjalanan':  (el) => openEditPerjalanan(el.dataset.pj, el.dataset.key),
+  'hapus-perjalanan': (el) => deletePerjalanan(el.dataset.pj, el.dataset.rute || null, el.dataset.key),
+  'hapus-baris-bm':   (el) => bmRemoveRow(el.dataset.idx),
+  'hapus-baris-bt':   (el) => btRemoveRow(el.dataset.rid),
+};
+
+document.addEventListener('click', (ev) => {
+  const t = ev.target;
+  if (!t || !t.closest) return;
+
+  const tujuan = t.closest('[data-nav]');
+  if (tujuan) { navigate(tujuan.dataset.nav); return; }
+
+  const el = t.closest('[data-aksi]');
+  const jalankan = el && AKSI_KLIK[el.dataset.aksi];
+  if (jalankan) jalankan(el);
+});
+
+/* Pilih barang dari stok -> isi satuan & harga otomatis */
+document.addEventListener('change', (ev) => {
+  const el = ev.target.closest?.('[data-aksi="pilih-stok"]');
+  if (el) handleStockSelection(el);
+});
+
+/* Jumlah / harga diubah -> hitung ulang total baris */
+document.addEventListener('input', (ev) => {
+  const el = ev.target.closest?.('[data-aksi="hitung-baris-bt"]');
+  if (el) btCalcRow(el.dataset.rid);
 });
 
 /* ========================
@@ -667,6 +738,14 @@ document.querySelector('.sidebar-nav').addEventListener('click', (e) => {
 const modalOverlay = document.getElementById('modal-overlay');
 const modalTitle   = document.getElementById('modal-title');
 const modalBody    = document.getElementById('modal-body');
+const modalBox     = document.getElementById('modal');
+
+/* Beberapa formulir (barang masuk/terjual banyak baris) butuh modal lebih
+   lebar. Lebarnya selalu dikembalikan ke bawaan oleh closeModal(), jadi
+   pemanggilnya tidak perlu meresetnya sendiri. */
+function setLebarModal(lebar) {
+  modalBox.style.maxWidth = lebar || '';
+}
 
 function openModal(title, bodyHTML, onSubmit) {
   // judul boleh berisi ikon (HTML) — isinya selalu dari template internal, bukan input pengguna
@@ -675,8 +754,8 @@ function openModal(title, bodyHTML, onSubmit) {
   modalOverlay.classList.add('open');
   const form = modalBody.querySelector('form');
   if (form && onSubmit) {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
       onSubmit(form);
     });
   }
@@ -684,12 +763,13 @@ function openModal(title, bodyHTML, onSubmit) {
 
 function closeModal() {
   modalOverlay.classList.remove('open');
-  setTimeout(() => { modalBody.innerHTML = ''; }, 300);
+  // dibereskan setelah animasi tutup selesai, supaya modal tidak mengkerut dulu
+  setTimeout(() => { modalBody.innerHTML = ''; setLebarModal(''); }, 300);
 }
 
 document.getElementById('modal-close').addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', (e) => {
-  if (e.target === modalOverlay) closeModal();
+modalOverlay.addEventListener('click', (ev) => {
+  if (ev.target === modalOverlay) closeModal();
 });
 
 /* ========================
@@ -707,14 +787,6 @@ function showToast(msg, type = 'success') {
    ======================== */
 function sumField(arr, field) {
   return arr.reduce((s, x) => s + Number(x[field] || 0), 0);
-}
-
-function filterCurrentMonth(arr, field = 'tanggal') {
-  const now = new Date();
-  return arr.filter(x => {
-    const { m, y } = getMonthYear(x[field]);
-    return m === now.getMonth() && y === now.getFullYear();
-  });
 }
 
 /* ========================
@@ -915,7 +987,7 @@ function renderDashboard() {
         <div class="card">
           <div class="card-header">
             <div class="card-title">${ico('inventory_2')} Stok Masuk Terbaru</div>
-            <button class="nx-lihat" onclick="navigate('barang-masuk')">Lihat Semua ${ico('arrow_forward',16)}</button>
+            <button class="nx-lihat" data-nav="barang-masuk">Lihat Semua ${ico('arrow_forward',16)}</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -983,7 +1055,7 @@ function renderDashboard() {
                   <div><span class="badge badge-yellow">Belum Lunas</span></div>
                 </span>
               </div>`;
-            }).join('') : `<div class="empty-state"><div class="empty-state-sub">Tidak ada piutang aktif</div></div>`}
+            }).join('') : `<div class="empty-state-sub">Tidak ada piutang aktif</div>`}
           </div>
         </div>
       </div>
@@ -1198,7 +1270,7 @@ function formPerjalanan(data = {}) {
       <input type="date" class="form-input" name="tanggalSelesai" value="${data.tanggalSelesai || today()}" required />
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
       <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
@@ -1234,22 +1306,21 @@ function openEditPerjalanan(id, key) {
 function deletePerjalanan(id, ruteId, key) {
   const html = `
     <div style="padding:10px 0 20px;text-align:center">
-      <p style="margin-bottom:8px;font-size:15px;color:var(--text-secondary)">Yakin ingin menghapus perjalanan ini?</p>
-      <p style="margin-bottom:20px;font-size:13px;color:var(--text-muted)">Data transaksi yang sudah tercatat di dalamnya tidak akan terhapus, tapi tidak akan muncul di perjalanan manapun.</p>
+      <p style="margin-bottom:8px;font-size:15px;color:var(--ink-variant)">Yakin ingin menghapus perjalanan ini?</p>
+      <p style="margin-bottom:20px;font-size:13px;color:var(--muted)">Data transaksi yang sudah tercatat di dalamnya tidak akan terhapus, tapi tidak akan muncul di perjalanan manapun.</p>
       <div style="display:flex;justify-content:center;gap:12px">
-        <button type="button" class="btn btn-ghost" onclick="closeModal(); document.getElementById('modal').style.maxWidth = '';">Batal</button>
+        <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
         <button type="button" class="btn btn-danger" id="btn-confirm-del-pj">Ya, Hapus</button>
       </div>
     </div>
   `;
-  document.getElementById('modal').style.maxWidth = '400px';
+  setLebarModal('400px');
   openModal('Konfirmasi Hapus', html, null);
 
   document.getElementById('btn-confirm-del-pj').addEventListener('click', () => {
     store.perjalananList = store.perjalananList.filter(x => x.id !== id);
     saveStore();
     closeModal();
-    document.getElementById('modal').style.maxWidth = '';
     renderCategoryTripList(ruteId, key);
     showToast('Perjalanan berhasil dihapus.', 'info');
   });
@@ -1259,7 +1330,6 @@ function perjalananLabel(pj) {
   return `${formatDate(pj.tanggalMulai)} — ${formatDate(pj.tanggalSelesai)}`;
 }
 
-const PERJALANAN_KEYS = ['barangTerjual', 'rekapPiutang', 'tagihan', 'uangKeluarLK', 'uangMasuk'];
 const LEGACY_PAGE_FOR_KEY = {
   barangTerjual: 'barang-terjual', rekapPiutang: 'rekap-piutang', tagihan: 'tagihan',
   uangKeluarLK: 'uang-keluar-lk', uangMasuk: 'uang-masuk',
@@ -1351,37 +1421,34 @@ function renderCategoryTripList(ruteId, key) {
               const count = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === pj.id).length;
               return `
               <tr>
-                <td class="group-no-cell" style="width:44px;text-align:center;color:var(--text-muted);">${i + 1}</td>
-                <td class="primary" style="cursor:pointer;" onclick="openPerjalananCategory(${ruteId ? `'${ruteId}'` : 'null'},'${pj.id}','${key}')">${perjalananLabel(pj)}</td>
+                <td class="group-no-cell" style="width:44px;text-align:center;color:var(--muted);">${i + 1}</td>
+                <td class="primary" data-aksi="buka-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}">${perjalananLabel(pj)}</td>
                 <td>${count} data</td>
                 <td>
                   <div class="actions">
-                    <button class="btn btn-primary btn-sm" onclick="openPerjalananCategory(${ruteId ? `'${ruteId}'` : 'null'},'${pj.id}','${key}')">${ico('description',16)} Lihat & Cetak</button>
-                    <button class="btn btn-ghost btn-sm" onclick="openEditPerjalanan('${pj.id}','${key}')">${ico('edit',16)} Edit</button>
-                    <button class="btn btn-danger btn-sm" onclick="deletePerjalanan('${pj.id}',${ruteId ? `'${ruteId}'` : 'null'},'${key}')">${ico('delete',16)}</button>
+                    <button class="btn btn-primary btn-sm" data-aksi="buka-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}">${ico('description',16)} Lihat & Cetak</button>
+                    <button class="btn btn-ghost btn-sm" data-aksi="ubah-perjalanan" data-pj="${pj.id}" data-key="${key}">${ico('edit',16)} Edit</button>
+                    <button class="btn btn-danger btn-sm" data-aksi="hapus-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}">${ico('delete',16)}</button>
                   </div>
                 </td>
               </tr>`;
-            }).join('') : `<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">
-                <div class="empty-state-icon">${ico('inbox')}</div>
-                <div class="empty-state-title">Belum ada ${G.toLowerCase()}</div>
-                <div class="empty-state-sub">Klik "+ Tambah ${G}" untuk mencatat ${G.toLowerCase()} pertama</div>
-              </td></tr>`}
+            }).join('') : barisKosong(4, `Belum ada ${G.toLowerCase()}`,
+                  `Klik "+ Tambah ${G}" untuk mencatat ${G.toLowerCase()} pertama`)}
           </tbody>
         </table>
       </div>
     </div>
 
-    <div style="margin-top:16px; font-size:13px; color:var(--text-muted);">
+    <div style="margin-top:16px; font-size:13px; color:var(--muted);">
       Lihat riwayat lengkap ${cfg.title.toLowerCase()} (semua data, termasuk yang belum dikelompokkan ke ${G.toLowerCase()}):
-      <a href="#" id="pj-legacy-link" style="color:var(--accent);">Lihat Semua</a>
+      <a href="#" id="pj-legacy-link" style="color:var(--teal);">Lihat Semua</a>
     </div>
   </div>`;
 
   content.innerHTML = html;
   document.getElementById('btn-add-perjalanan').addEventListener('click', () => openAddPerjalanan(ruteId, key));
-  document.getElementById('pj-legacy-link').addEventListener('click', (e) => {
-    e.preventDefault();
+  document.getElementById('pj-legacy-link').addEventListener('click', (ev) => {
+    ev.preventDefault();
     navigate(LEGACY_PAGE_FOR_KEY[key], ruteId);
   });
 }
@@ -1504,7 +1571,7 @@ function renderList(key) {
   renderTableBody(key);
 
   document.getElementById(`btn-add-${key}`).addEventListener('click', () => openAddModal(key));
-  document.getElementById(`search-${key}`).addEventListener('input', (e) => {
+  document.getElementById(`search-${key}`).addEventListener('input', () => {
     refreshTableBody(key);
   });
   document.getElementById(`btn-print-${key}`).addEventListener('click', () => {
@@ -1512,12 +1579,12 @@ function renderList(key) {
   });
 
   if (hasDateFilter) {
-    document.getElementById(`filter-bulan-${key}`).addEventListener('change', (e) => {
-      listFilters[key].bulan = e.target.value;
+    document.getElementById(`filter-bulan-${key}`).addEventListener('change', (ev) => {
+      listFilters[key].bulan = ev.target.value;
       refreshTableBody(key);
     });
-    document.getElementById(`filter-tahun-${key}`).addEventListener('change', (e) => {
-      listFilters[key].tahun = e.target.value;
+    document.getElementById(`filter-tahun-${key}`).addEventListener('change', (ev) => {
+      listFilters[key].tahun = ev.target.value;
       refreshTableBody(key);
     });
   }
@@ -1566,12 +1633,17 @@ function renderTableBody(key, query = '') {
   renderRowsIntoTbody(key, filtered, tbody);
 }
 
-function renderEmptyTbody(tbody, colspan, sub) {
-  tbody.innerHTML = `<tr><td colspan="${colspan}" style="padding:40px;text-align:center;color:var(--text-muted)">
+/* Satu baris tabel "tidak ada isinya", dipakai di beberapa tabel. */
+function barisKosong(colspan, judul, sub) {
+  return `<tr><td colspan="${colspan}" style="padding:40px;text-align:center;color:var(--muted)">
     <div class="empty-state-icon">${ico('inbox')}</div>
-    <div class="empty-state-title">Tidak ada data</div>
+    <div class="empty-state-title">${e(judul)}</div>
     <div class="empty-state-sub">${sub}</div>
   </td></tr>`;
+}
+
+function renderEmptyTbody(tbody, colspan, sub) {
+  tbody.innerHTML = barisKosong(colspan, 'Tidak ada data', sub);
 }
 
 // baris yang tanggalnya di luar rentang periode (mis. periode dipersempit belakangan)
@@ -1591,12 +1663,12 @@ function renderRowsIntoTbody(key, filtered, tbody) {
     // Simple numbered list
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="${tandaiBarisLuar(item).cls.trim()}"${tandaiBarisLuar(item).attr}>
-        <td class="group-no-cell" style="width:44px;font-weight:700;color:var(--text-muted);text-align:center">${idx + 1}</td>
+        <td class="group-no-cell" style="width:44px;font-weight:700;color:var(--muted);text-align:center">${idx + 1}</td>
         ${cfg.rowFn(item)}
         <td>
           <div class="actions">
-            <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">${ico('edit',16)} Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${item.id}')">${ico('delete',16)}</button>
+            <button class="btn btn-ghost btn-sm" data-aksi="ubah" data-key="${key}" data-id="${item.id}">${ico('edit',16)} Edit</button>
+            <button class="btn btn-danger btn-sm" data-aksi="hapus" data-key="${key}" data-id="${item.id}">${ico('delete',16)}</button>
           </div>
         </td>
       </tr>
@@ -1653,8 +1725,8 @@ function renderGroupedBody(key, items, tbody, cfg) {
       html += cfg.itemCellsFn(item);
       html += `<td>
         <div class="actions">
-          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${key}','${item.id}')">${ico('edit',16)} Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteItem('${key}','${item.id}')">${ico('delete',16)}</button>
+          <button class="btn btn-ghost btn-sm" data-aksi="ubah" data-key="${key}" data-id="${item.id}">${ico('edit',16)} Edit</button>
+          <button class="btn btn-danger btn-sm" data-aksi="hapus" data-key="${key}" data-id="${item.id}">${ico('delete',16)}</button>
         </div></td>
       </tr>`;
     });
@@ -1725,14 +1797,18 @@ function getAvailableStock() {
 
 function stockDropdownOptions(selectedNama = '') {
   const stocks = getAvailableStock();
-  if (stocks.length === 0) return '<option value="">-- Stok Kosong --</option>';
-  let html = '<option value="">-- Pilih Barang dari Stok --</option>';
-  stocks.forEach(s => {
-    const sel = selectedNama === s.nama ? 'selected' : '';
-    const dataObj = encodeURIComponent(JSON.stringify(s));
-    const sisaTxt = formatStock(s.stokKecil, s.konversi, s.satuan1, s.satuan2);
-    html += `<option value="${e(s.nama)}" data-stock="${dataObj}" ${sel}>${e(s.nama)} - Sisa: ${sisaTxt}</option>`;
-  });
+  let html = '<option value="">-- Pilih Barang --</option>';
+  html += '<option value="__MANUAL__" style="color:var(--brand);font-weight:600">+ Isi Barang Manual</option>';
+  if (stocks.length === 0) {
+    html += '<option value="" disabled>-- Stok Kosong --</option>';
+  } else {
+    stocks.forEach(s => {
+      const sel = selectedNama === s.nama ? 'selected' : '';
+      const dataObj = encodeURIComponent(JSON.stringify(s));
+      const sisaTxt = formatStock(s.stokKecil, s.konversi, s.satuan1, s.satuan2);
+      html += `<option value="${e(s.nama)}" data-stock="${dataObj}" ${sel}>${e(s.nama)} - Sisa: ${sisaTxt}</option>`;
+    });
+  }
   return html;
 }
 
@@ -1754,7 +1830,7 @@ function formBarangMasuk(data = {}) {
         <label class="form-label">Nama Barang</label>
         <input type="text" class="form-input" name="nama" value="${e(data.nama || '')}" placeholder="Nama barang" required />
       </div>
-      
+
       <div class="form-group">
         <label class="form-label">Jml (Besar)</label>
         <input type="number" class="form-input" name="jumlah1" value="${data.jumlah1 || data.jumlah || ''}" min="1" placeholder="0" required />
@@ -1792,7 +1868,7 @@ function formBarangMasuk(data = {}) {
       </div>
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
       <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
@@ -1822,7 +1898,7 @@ function buildMultiBarangMasukForm() {
   </div>
 
   <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-    <span style="font-size:13px;font-weight:700;color:var(--text-primary)">Daftar Barang</span>
+    <span style="font-size:13px;font-weight:700;color:var(--ink)">Daftar Barang</span>
     <button type="button" class="btn btn-ghost btn-sm" id="bm-add-row">${ico('add',16)} Tambah Baris</button>
   </div>
 
@@ -1843,7 +1919,7 @@ function buildMultiBarangMasukForm() {
   </div>
 
   <div class="form-actions" style="margin-top:16px">
-    <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
     <button type="button" class="btn btn-primary" id="bm-simpan">${ico('save',17)} Simpan Semua</button>
   </div>`;
 }
@@ -1865,7 +1941,7 @@ function bmRowHTML(idx) {
       <input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual2" />
     </td>
     <td style="text-align:center;vertical-align:top">
-      <button type="button" class="btn btn-danger btn-sm" onclick="bmRemoveRow(${idx})" title="Hapus baris">${ico('delete',16)}</button>
+      <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bm" data-idx="${idx}" title="Hapus baris">${ico('delete',16)}</button>
     </td>
   </tr>`;
 }
@@ -1882,7 +1958,6 @@ function bmAddRow() {
   tbody.appendChild(tr);
   tr.querySelector('[data-field="nama"]').focus();
 }
-window.bmAddRow = bmAddRow;
 
 function bmRemoveRow(idx) {
   const row = document.getElementById(`bm-row-${idx}`);
@@ -1893,11 +1968,10 @@ function bmRemoveRow(idx) {
     showToast('Minimal harus ada 1 baris barang.', 'error');
   }
 }
-window.bmRemoveRow = bmRemoveRow;
 
 function openMultiBarangMasukModal() {
   _bmRowCount = 0;
-  document.getElementById('modal').style.maxWidth = '920px';
+  setLebarModal('920px');
   openModal('Tambah Barang Masuk', buildMultiBarangMasukForm(), null);
 
   bmAddRow();
@@ -1942,7 +2016,6 @@ function openMultiBarangMasukModal() {
     store.barangMasuk.push(...items);
     saveStore();
     closeModal();
-    document.getElementById('modal').style.maxWidth = '';
     renderList('barangMasuk');
     showToast(`${items.length} barang dari ${e(supplier)} berhasil disimpan!`, 'success');
   });
@@ -1966,7 +2039,7 @@ function formBarangTerjual(data = {}) {
       </div>
       <div class="form-group form-full">
         <label class="form-label">Nama Barang (Dari Stok)</label>
-        <select class="form-select" name="nama" onchange="handleStockSelection(this)" required>
+        <select class="form-select" name="nama" data-aksi="pilih-stok" required>
           ${stockDropdownOptions(data.nama)}
         </select>
       </div>
@@ -1988,7 +2061,7 @@ function formBarangTerjual(data = {}) {
       </div>
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
       <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
@@ -2023,7 +2096,7 @@ function formPiutang(data = {}) {
       </div>
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
       <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
@@ -2058,7 +2131,7 @@ function formRekapPiutang(data = {}) {
       </div>
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
       <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
@@ -2087,7 +2160,7 @@ function formUtang(data = {}) {
       </select>
     </div>
     <div class="form-actions">
-      <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
       <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
     </div>
   </form>`;
@@ -2101,7 +2174,7 @@ function formSimple(fields) {
       const isNum = name === 'jumlah';
       return `<div class="form-group form-full">
         <label class="form-label">${label}</label>
-        <input type="${isNum ? 'number' : 'text'}" class="form-input" name="${name}" 
+        <input type="${isNum ? 'number' : 'text'}" class="form-input" name="${name}"
           value="${data[name] || ''}" placeholder="${isNum ? '0' : label}" ${isNum ? 'min="0"' : ''} required />
       </div>`;
     });
@@ -2113,7 +2186,7 @@ function formSimple(fields) {
       </div>
       ${rows.join('')}
       <div class="form-actions">
-        <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+        <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
         <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan</button>
       </div>
     </form>`;
@@ -2144,7 +2217,7 @@ function buildMultiBarangTerjualForm() {
   </div>
 
   <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-    <span style="font-size:13px;font-weight:700;color:var(--text-primary)">Daftar Barang Terjual</span>
+    <span style="font-size:13px;font-weight:700;color:var(--ink)">Daftar Barang Terjual</span>
     <button type="button" class="btn btn-ghost btn-sm" id="bt-add-row">${ico('add',16)} Tambah Baris</button>
   </div>
 
@@ -2165,7 +2238,7 @@ function buildMultiBarangTerjualForm() {
   </div>
 
   <div class="form-actions" style="margin-top:16px">
-    <button type="button" class="btn btn-ghost" onclick="closeModal()">Batal</button>
+    <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
     <button type="button" class="btn btn-primary" id="bt-simpan">${ico('save',17)} Simpan Semua</button>
   </div>`;
 }
@@ -2181,21 +2254,20 @@ function btAddRow() {
   const rid = _btRowCount;
   tr.innerHTML = `
     <td>
-      <select class="form-select" style="width:100%" data-field="nama" onchange="handleStockSelection(this)" required>
+      <select class="form-select" style="width:100%" data-field="nama" data-aksi="pilih-stok" required>
         ${stockDropdownOptions()}
       </select>
     </td>
-    <td><input type="number" class="form-input" style="width:100%" placeholder="0" min="1" data-field="jumlah" oninput="btCalcRow(${rid})" /></td>
+    <td><input type="number" class="form-input" style="width:100%" placeholder="0" min="1" data-field="jumlah" data-aksi="hitung-baris-bt" data-rid="${rid}" /></td>
     <td><select class="form-select" style="width:100%" data-field="satuan">${satuanOptions()}</select></td>
-    <td><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual" oninput="btCalcRow(${rid})" /></td>
+    <td><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual" data-aksi="hitung-baris-bt" data-rid="${rid}" /></td>
     <td><span class="bt-total" id="bt-total-${rid}" style="font-size:12px;color:var(--green);font-weight:700">Rp 0</span></td>
     <td style="text-align:center">
-      <button type="button" class="btn btn-danger btn-sm" onclick="btRemoveRow(${rid})">${ico('delete',16)}</button>
+      <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bt" data-rid="${rid}">${ico('delete',16)}</button>
     </td>`;
   tbody.appendChild(tr);
   tr.querySelector('[data-field="nama"]').focus();
 }
-window.btAddRow = btAddRow;
 
 function btCalcRow(idx) {
   const tr  = document.getElementById(`bt-row-${idx}`);
@@ -2205,7 +2277,6 @@ function btCalcRow(idx) {
   const span  = document.getElementById(`bt-total-${idx}`);
   if (span) span.textContent = fmt(qty * harga);
 }
-window.btCalcRow = btCalcRow;
 
 function btRemoveRow(idx) {
   const row   = document.getElementById(`bt-row-${idx}`);
@@ -2213,28 +2284,53 @@ function btRemoveRow(idx) {
   if (row && tbody && tbody.rows.length > 1) row.remove();
   else showToast('Minimal harus ada 1 baris barang.', 'error');
 }
-window.btRemoveRow = btRemoveRow;
 
 function handleStockSelection(selectEl) {
   const option = selectEl.options[selectEl.selectedIndex];
   if (!option || !option.value) return;
-  
+
+  if (option.value === '__MANUAL__') {
+    const parent = selectEl.parentNode;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-input';
+    input.style.width = '100%';
+    if (selectEl.name) input.name = selectEl.name;
+    if (selectEl.dataset.field) input.dataset.field = selectEl.dataset.field;
+    input.placeholder = 'Ketik nama barang...';
+    input.required = true;
+    parent.replaceChild(input, selectEl);
+    input.focus();
+
+    const container = input.closest('tr') || input.closest('.form-grid');
+    if (container) {
+      const satuanEl = container.querySelector('[name="satuan"], [data-field="satuan"]');
+      if (satuanEl) {
+        satuanEl.innerHTML = satuanOptions();
+        satuanEl.onchange = null;
+      }
+      const hargaEl = container.querySelector('[name="hargaJual"], [data-field="hargaJual"]');
+      if (hargaEl) hargaEl.value = '';
+    }
+    return;
+  }
+
   let data;
   try { data = JSON.parse(decodeURIComponent(option.dataset.stock)); }
-  catch(e) { return; }
-  
+  catch (err) { return; }
+
   const container = selectEl.closest('tr') || selectEl.closest('.form-grid');
   if (!container) return;
 
   const satuanEl = container.querySelector('[name="satuan"], [data-field="satuan"]');
   const hargaEl  = container.querySelector('[name="hargaJual"], [data-field="hargaJual"]');
-  
+
   if (satuanEl) {
     satuanEl.innerHTML = '';
     const opts = [];
     if (data.satuan1) opts.push({ s: data.satuan1, h: data.hargaJual1 });
     if (data.satuan2 && data.satuan2 !== data.satuan1) opts.push({ s: data.satuan2, h: data.hargaJual2 });
-    
+
     opts.forEach(o => {
       const opt = document.createElement('option');
       opt.value = o.s;
@@ -2242,7 +2338,7 @@ function handleStockSelection(selectEl) {
       opt.dataset.price = o.h;
       satuanEl.appendChild(opt);
     });
-    
+
     satuanEl.onchange = function() {
       if (hargaEl) {
          const selectedOpt = satuanEl.options[satuanEl.selectedIndex];
@@ -2256,11 +2352,10 @@ function handleStockSelection(selectEl) {
     satuanEl.onchange(); // trigger initial price
   }
 }
-window.handleStockSelection = handleStockSelection;
 
 function openMultiBarangTerjualModal() {
   _btRowCount = 0;
-  document.getElementById('modal').style.maxWidth = '840px';
+  setLebarModal('840px');
   openModal('Tambah Barang Terjual', buildMultiBarangTerjualForm(), null);
   btAddRow();
   document.getElementById('bt-add-row').addEventListener('click', btAddRow);
@@ -2297,7 +2392,6 @@ function openMultiBarangTerjualModal() {
     store.barangTerjual.push(...items);
     saveStore();
     closeModal();
-    document.getElementById('modal').style.maxWidth = '';
     refreshAfterListChange('barangTerjual');
     showToast(`${items.length} barang terjual ke ${e(pelanggan)} berhasil disimpan!`, 'success');
   });
@@ -2337,7 +2431,7 @@ function openAddModal(key) {
 
     // If we just added a new rute, refresh the sidebar dynamically
     if (key === 'ruteList') renderRuteSidebar();
-    
+
     saveStore();
     closeModal();
     refreshAfterListChange(key);
@@ -2356,10 +2450,10 @@ function openEditModal(key, id) {
     ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
     const idx = store[key].findIndex(x => x.id === id);
     store[key][idx] = { ...item, ...fd };
-    
+
     // If we just edited a rute, refresh the sidebar dynamically
     if (key === 'ruteList') renderRuteSidebar();
-    
+
     saveStore();
     closeModal();
     refreshAfterListChange(key);
@@ -2370,31 +2464,25 @@ function openEditModal(key, id) {
 function deleteItem(key, id) {
   const html = `
     <div style="padding:10px 0 20px;text-align:center">
-      <p style="margin-bottom:20px;font-size:15px;color:var(--text-secondary)">Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.</p>
+      <p style="margin-bottom:20px;font-size:15px;color:var(--ink-variant)">Yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.</p>
       <div style="display:flex;justify-content:center;gap:12px">
-        <button type="button" class="btn btn-ghost" onclick="closeModal(); document.getElementById('modal').style.maxWidth = '';">Batal</button>
+        <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
         <button type="button" class="btn btn-danger" id="btn-confirm-del">Ya, Hapus</button>
       </div>
     </div>
   `;
-  document.getElementById('modal').style.maxWidth = '400px';
+  setLebarModal('400px');
   openModal('Konfirmasi Hapus', html, null);
-  
+
   document.getElementById('btn-confirm-del').addEventListener('click', () => {
     store[key] = store[key].filter(x => x.id !== id);
     if (key === 'ruteList') renderRuteSidebar();
     saveStore();
     closeModal();
-    document.getElementById('modal').style.maxWidth = '';
     refreshAfterListChange(key);
     showToast('Data berhasil dihapus.', 'info');
   });
 }
-
-/* make functions accessible from HTML onclick */
-window.openEditModal = openEditModal;
-window.deleteItem    = deleteItem;
-window.closeModal    = closeModal;
 
 /* ========================
    STOK TOKO
@@ -2628,11 +2716,8 @@ function renderStok() {
     const potong = cocok.slice(mulai, mulai + STOK_PER_HALAMAN);
 
     if (!total) {
-      tbody.innerHTML = `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--muted)">
-        <div class="empty-state-icon">${ico('inbox')}</div>
-        <div class="empty-state-title">Tidak ditemukan</div>
-        <div class="empty-state-sub">Coba kata kunci lain, atau tambahkan data di menu Barang Masuk</div>
-      </td></tr>`;
+      tbody.innerHTML = barisKosong(6, 'Tidak ditemukan',
+        'Coba kata kunci lain, atau tambahkan data di menu Barang Masuk');
     } else {
       tbody.innerHTML = kelompokStok(potong, mode).map(g => {
         const kepala = g.judul ? `<tr class="grup-kepala"><td colspan="6">
@@ -2761,7 +2846,7 @@ function buildGrafikGarisLaba(data, kompak = false) {
   if (!data.length) {
     return `<div class="card" style="margin-bottom:20px;">
       <div class="card-header"><div class="card-title">${ico('show_chart')} Tren Untung / Rugi</div></div>
-      <div style="padding:34px;text-align:center;color:var(--text-muted)">Belum ada transaksi untuk ditampilkan grafiknya</div>
+      <div style="padding:34px;text-align:center;color:var(--muted)">Belum ada transaksi untuk ditampilkan grafiknya</div>
     </div>`;
   }
 
@@ -2844,7 +2929,7 @@ function buildGrafikGarisLaba(data, kompak = false) {
     <div class="card-header">
       <div>
         <div class="card-title">${ico('show_chart')} Tren Untung / Rugi</div>
-        <div style="color:var(--text-muted); font-size:12px; margin-top:4px;">
+        <div style="color:var(--muted); font-size:12px; margin-top:4px;">
           Perkembangan laba bersih tiap bulan. Di atas garis 0 = untung, di bawah = rugi.
         </div>
       </div>
@@ -3293,7 +3378,7 @@ function renderPenjelasanLaporan() {
             <div class="pj-total is-plus">Total Pendapatan <b>${fmt(lp.totalPendapatan)}</b></div>
           </div>
 
-          <div class="pj-operator pj-op-kurang">
+          <div class="pj-operator">
             <div class="pj-op-simbol">−</div>
             <div class="pj-op-teks">dikurangi</div>
           </div>
@@ -3475,14 +3560,14 @@ function renderPenjelasanLaporan() {
         <div class="page-subtitle">Dari mana setiap angka di Laporan Keuangan berasal</div>
       </div>
       <div class="filter-bar no-print" style="display:flex; align-items:center; gap:8px;">
-        <label style="font-size:13px; color:var(--text-muted); font-weight:600;">Bulan:</label>
+        <label style="font-size:13px; color:var(--muted); font-weight:600;">Bulan:</label>
         <select class="form-select" id="pj-bulan" style="width:150px;">
           ${bulanOptions.map(m => `<option value="${m}" ${m === selM ? 'selected' : ''}>${MONTHS[m]}</option>`).join('')}
         </select>
         <select class="form-select" id="pj-tahun" style="width:100px;">
           ${tahunOptions.map(y => `<option value="${y}" ${y === selY ? 'selected' : ''}>${y}</option>`).join('')}
         </select>
-        <button class="btn btn-secondary" id="pj-cetak">${ico('print',17)} Cetak</button>
+        <button class="btn btn-ghost" id="pj-cetak">${ico('print',17)} Cetak</button>
       </div>
     </div>
     <div id="penjelasan-isi"></div>
@@ -3671,7 +3756,7 @@ function wireCariGlobal() {
       // membersihkan data contoh di browser ini.
       if (storageMode === 'lokal') {
         if (!confirm('Mulai ulang demo? Data yang kamu isi di browser ini akan dihapus.')) return;
-        try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+        try { localStorage.removeItem(STORE_KEY); } catch (err) {}
         window.location.reload();
         return;
       }
@@ -3679,7 +3764,7 @@ function wireCariGlobal() {
       if (!confirm('Keluar dari aplikasi?')) return;
       try {
         await fetch('api/logout.php', { method: 'POST', credentials: 'same-origin' });
-      } catch (e) { /* tetap arahkan ke login */ }
+      } catch (err) { /* tetap arahkan ke login */ }
       window.location.replace('login.html');
     });
   }
