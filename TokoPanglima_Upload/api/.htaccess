@@ -1,8 +1,0 @@
-# Lapisan kedua: file pendukung di dalam /api tidak boleh diakses langsung
-# lewat browser. Hanya endpoint yang memang dipanggil aplikasi yang dibuka.
-
-<FilesMatch "^(config\.php|config\.example\.php|bootstrap\.php|schema_map\.php)$">
-  Require all denied
-</FilesMatch>
-
-Options -Indexes
