@@ -20,8 +20,8 @@ Aplikasi ini sangat ringan dan sangat cocok untuk di- *deploy* di *shared hostin
 1. Buat **Database MySQL** di cPanel Anda.
 2. *Import* file `sql/schema.sql` ke dalam database yang baru dibuat melalui **phpMyAdmin**.
 3. Upload seluruh file dari *project* ini ke dalam folder `public_html` di File Manager cPanel.
-4. Buka folder `api/`, buat salinan (*copy*) dari file `db_config.example.php` menjadi `db_config.php`.
-5. Edit `db_config.php` dengan mengisi nama database, *username*, dan *password* dari langkah 1.
+4. Buka folder `api/`, buat salinan (*copy*) dari file `config.example.php` menjadi `config.php`.
+5. Edit `config.php` dengan mengubah driver menjadi `mysql`, lalu isi nama database, *username*, dan *password* dari langkah 1.
 6. Selesai! Website Toko Panglima Anda sudah bisa diakses secara online.
 
 ---
