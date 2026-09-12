@@ -1880,6 +1880,19 @@ function formBarangMasuk(data = {}) {
 
 /* ── SATUAN options helper ── */
 const SATUAN_OPTS = ['Kotak','Set'];
+
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.classList.contains('ecer-toggle')) {
+    const row = e.target.closest('tr');
+    if (row) {
+      row.querySelectorAll('.ecer-field').forEach(el => {
+        el.style.display = e.target.checked ? 'block' : 'none';
+        if (!e.target.checked && el.tagName === 'INPUT') el.value = '';
+      });
+    }
+  }
+});
+
 function satuanOptions(sel = '') {
   return SATUAN_OPTS.map(s => `<option value="${s}" ${sel === s ? 'selected' : ''}>${s}</option>`).join('');
 }
@@ -1934,15 +1947,20 @@ function bmRowHTML(idx) {
     <td style="vertical-align:top">
       <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Jml" min="1" data-field="jumlah1" />
       <select class="form-select" style="width:100%" data-field="satuan1">${satuanOptions()}</select>
+      <div style="margin-top:8px">
+        <label style="font-size:12px; cursor:pointer;"><input type="checkbox" class="ecer-toggle" /> + Eceran?</label>
+      </div>
     </td>
     <td style="vertical-align:top">
-      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="(Opsional)" min="0" data-field="jumlah2" />
-      <select class="form-select" style="width:100%" data-field="satuan2">${satuanOptions()}</select>
+      <div class="ecer-field" style="display:none">
+        <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Jml" min="0" data-field="jumlah2" />
+        <select class="form-select" style="width:100%" data-field="satuan2">${satuanOptions()}</select>
+      </div>
     </td>
     <td style="vertical-align:top"><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaModal" /></td>
     <td style="vertical-align:top">
-      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="0" min="0" data-field="hargaJual1" />
-      <input type="number" class="form-input" style="width:100%" placeholder="(Opsional)" min="0" data-field="hargaJual2" />
+      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Besar" min="0" data-field="hargaJual1" />
+      <input type="number" class="form-input ecer-field" style="width:100%; display:none;" placeholder="Ecer" min="0" data-field="hargaJual2" />
     </td>
     <td style="text-align:center;vertical-align:top">
       <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bm" data-idx="${idx}" title="Hapus baris">${ico('delete',16)}</button>
