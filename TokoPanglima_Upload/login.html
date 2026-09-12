@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Masuk — Toko Panglima Bangunan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      background:
+        radial-gradient(1100px 520px at 12% -10%, rgba(13,148,136,.10), transparent 60%),
+        var(--bg);
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-float);
+      width: 100%;
+      max-width: 400px;
+      padding: 34px 32px 30px;
+    }
+    .login-brand {
+      display: flex; align-items: center; gap: 11px;
+      padding-bottom: 20px; margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .login-brand .material-symbols-outlined { font-size: 30px; color: var(--primary); }
+    .login-brand b {
+      display: block; font-size: 15px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase; color: var(--primary);
+    }
+    /* pakai class khusus — kalau memakai selektor `span` biasa,
+       span ikon Material Symbols ikut terkena dan berubah jadi teks */
+    .login-brand .brand-sub {
+      font-family: Inter, sans-serif; font-size: 10px; font-weight: 600;
+      letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+    }
+    .login-card h1 { font-size: 21px; font-weight: 700; letter-spacing: -.01em; }
+    .login-card .lead { color: var(--muted); font-size: 13.5px; margin: 5px 0 22px; }
+    .field { margin-bottom: 15px; }
+    .btn-login {
+      width: 100%; margin-top: 8px; padding: 12px;
+      font-size: 14px; font-weight: 700;
+    }
+    .alert {
+      display: none;
+      align-items: flex-start; gap: 9px;
+      background: var(--red-soft); color: #B91C1C;
+      border-radius: var(--r-sm); padding: 11px 13px;
+      font-size: 13.5px; line-height: 1.45; margin-bottom: 16px;
+    }
+    .alert.show { display: flex; }
+    .alert .material-symbols-outlined { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .demo-note {
+      display: none;
+      gap: 10px;
+      background: var(--amber-soft); color: var(--amber);
+      border-radius: var(--r-sm); padding: 12px 14px;
+      font-size: 13px; line-height: 1.5; margin-bottom: 18px;
+    }
+    .demo-note.show { display: flex; }
+    .demo-note .material-symbols-outlined { font-size: 19px; flex-shrink: 0; margin-top: 1px; color: var(--amber); }
+    .demo-note b { display: block; font-size: 13.5px; margin-bottom: 3px; }
+    .demo-note p { margin: 0; color: var(--muted); }
+
+    .login-foot {
+      margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 7px;
+      font-size: 11.5px; color: var(--muted);
+    }
+    .login-foot .material-symbols-outlined { font-size: 15px; color: var(--teal); }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <div class="login-brand">
+      <span class="material-symbols-outlined">architecture</span>
+      <div>
+        <b>SI Panglima</b>
+        <span class="brand-sub">Toko Panglima Bangunan</span>
+      </div>
+    </div>
+
+    <h1>Masuk</h1>
+    <p class="lead">Silakan masuk untuk membuka pencatatan toko.</p>
+
+    <div class="alert" id="alert" role="alert" aria-live="polite">
+      <span class="material-symbols-outlined">error</span>
+      <span id="alert-msg"></span>
+    </div>
+
+    <div class="demo-note" id="demo-note">
+      <span class="material-symbols-outlined">science</span>
+      <div>
+        <b>Mode demo</b>
+        <p>Versi ini hanya untuk melihat tampilan aplikasi. Backend dan database
+           tidak tersedia di sini, jadi data yang kamu isi hanya tersimpan di
+           browser ini dan tidak dikirim ke mana pun.</p>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-login" type="button" id="btn-demo" hidden>
+      Lihat Demo
+    </button>
+
+    <form id="login-form" autocomplete="on">
+      <div class="field">
+        <label class="form-label" for="username">Username</label>
+        <input class="form-input" id="username" name="username" required
+               autocomplete="username" autocapitalize="none" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label class="form-label" for="password">Sandi</label>
+        <input class="form-input" id="password" name="password" type="password" required
+               autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary btn-login" type="submit" id="btn-login">Masuk</button>
+    </form>
+
+    <div class="login-foot">
+      <span class="material-symbols-outlined">lock</span>
+      Koneksi terenkripsi. Sandi disimpan dalam bentuk teracak, bukan teks biasa.
+    </div>
+  </main>
+
+  <script src="auth.js"></script>
+</body>
+</html>

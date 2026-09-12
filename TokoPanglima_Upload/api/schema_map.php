@@ -44,16 +44,6 @@ return [
         'tanggal'=> ['tanggal'],
         'enum'   => [],
     ],
-    'stokToko' => [
-        'tabel'  => 'stok_toko',
-        'kolom'  => [
-            'id' => 'id', 'nama' => 'nama', 'jumlah' => 'jumlah', 'satuan' => 'satuan',
-            'hargaModal' => 'harga_modal', 'hargaJual' => 'harga_jual',
-        ],
-        'angka'  => ['jumlah', 'hargaModal', 'hargaJual'],
-        'tanggal'=> [],
-        'enum'   => [],
-    ],
     'utang' => [
         'tabel'  => 'utang',
         'kolom'  => ['id'=>'id','tanggal'=>'tanggal','keterangan'=>'keterangan','jumlah'=>'jumlah','status'=>'status'],

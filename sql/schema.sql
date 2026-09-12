@@ -66,6 +66,17 @@ CREATE TABLE IF NOT EXISTS barang_masuk (
   KEY idx_bm_nama (nama)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS stok_toko (
+  id VARCHAR(40) NOT NULL,
+  nama VARCHAR(200) NOT NULL DEFAULT '',
+  jumlah DECIMAL(14,2) NOT NULL DEFAULT 0,
+  satuan VARCHAR(30) NULL,
+  harga_modal DECIMAL(14,2) NOT NULL DEFAULT 0,
+  harga_jual DECIMAL(14,2) NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_stok_nama (nama)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS utang (
   id         VARCHAR(40) NOT NULL,
   tanggal    DATE NOT NULL,

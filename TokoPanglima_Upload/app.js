@@ -95,8 +95,7 @@ let csrfToken   = '';
 function loadStoreLokal() {
   let s = null;
   try { s = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (err) {}
-  if (!s) return defaultStore();
-  return Object.assign(defaultStore(), s);
+  return s || defaultStore();
 }
 
 function saveStoreLokal() {
@@ -173,7 +172,6 @@ function defaultStore() {
       { id: 'rute-riau',     nama: 'Riau' },
       { id: 'rute-medan',    nama: 'Medan' },
     ],
-    stokToko:      [],
     barangMasuk:   [],
     utang:         [],
     piutang:       [],
@@ -708,8 +706,6 @@ const AKSI_KLIK = {
   'hapus-perjalanan': (el) => deletePerjalanan(el.dataset.pj, el.dataset.rute || null, el.dataset.key),
   'hapus-baris-bm':   (el) => bmRemoveRow(el.dataset.idx),
   'hapus-baris-bt':   (el) => btRemoveRow(el.dataset.rid),
-  'edit-stok':        (el) => editStokModal(el.dataset.nama),
-  'hapus-stok':       (el) => hapusStok(el.dataset.nama),
 };
 
 document.addEventListener('click', (ev) => {
@@ -1818,7 +1814,7 @@ function stockDropdownOptions(selectedNama = '') {
 
 /* ── form SINGLE edit (dipakai saat edit satu baris) ── */
 function formBarangMasuk(data = {}) {
-  const satuanOpts = ['Kotak','Set'];
+  const satuanOpts = ['Sak','Batang','Dus','Lusin','Pcs','Kaleng','Lembar','Meter','Kg','Ton','Buah','Karung','Balok'];
   return `<form id="modal-form">
     <div class="form-grid">
       <div class="form-group">
@@ -1848,7 +1844,7 @@ function formBarangMasuk(data = {}) {
 
       <div class="form-group">
         <label class="form-label">Jml (Kecil/Ecer)</label>
-        <input type="number" class="form-input" name="jumlah2" value="${data.jumlah2 || data.jumlah || ''}" min="0" placeholder="(Opsional)" />
+        <input type="number" class="form-input" name="jumlah2" value="${data.jumlah2 || data.jumlah || ''}" min="1" placeholder="0" required />
       </div>
       <div class="form-group">
         <label class="form-label">Satuan (Kecil/Ecer)</label>
@@ -1868,7 +1864,7 @@ function formBarangMasuk(data = {}) {
       </div>
       <div class="form-group">
         <label class="form-label">Harga Jual (Kecil/Ecer)</label>
-        <input type="number" class="form-input" name="hargaJual2" value="${data.hargaJual2 || data.hargaJual || ''}" placeholder="(Opsional)" />
+        <input type="number" class="form-input" name="hargaJual2" value="${data.hargaJual2 || data.hargaJual || ''}" placeholder="0" required />
       </div>
     </div>
     <div class="form-actions">
@@ -1879,7 +1875,7 @@ function formBarangMasuk(data = {}) {
 }
 
 /* ── SATUAN options helper ── */
-const SATUAN_OPTS = ['Kotak','Set'];
+const SATUAN_OPTS = ['Sak','Batang','Dus','Lusin','Pcs','Kaleng','Lembar','Meter','Kg','Ton','Buah','Karung','Balok'];
 function satuanOptions(sel = '') {
   return SATUAN_OPTS.map(s => `<option value="${s}" ${sel === s ? 'selected' : ''}>${s}</option>`).join('');
 }
@@ -1936,13 +1932,13 @@ function bmRowHTML(idx) {
       <select class="form-select" style="width:100%" data-field="satuan1">${satuanOptions()}</select>
     </td>
     <td style="vertical-align:top">
-      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="(Opsional)" min="0" data-field="jumlah2" />
+      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Jml" min="1" data-field="jumlah2" />
       <select class="form-select" style="width:100%" data-field="satuan2">${satuanOptions()}</select>
     </td>
     <td style="vertical-align:top"><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaModal" /></td>
     <td style="vertical-align:top">
       <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="0" min="0" data-field="hargaJual1" />
-      <input type="number" class="form-input" style="width:100%" placeholder="(Opsional)" min="0" data-field="hargaJual2" />
+      <input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual2" />
     </td>
     <td style="text-align:center;vertical-align:top">
       <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bm" data-idx="${idx}" title="Hapus baris">${ico('delete',16)}</button>
@@ -2005,7 +2001,7 @@ function openMultiBarangMasukModal() {
       const hargaJual1= Number(tr.querySelector('[data-field="hargaJual1"]').value);
       const hargaJual2= Number(tr.querySelector('[data-field="hargaJual2"]').value);
 
-      if (!nama || !jumlah1 || !hargaModal || !hargaJual1) {
+      if (!nama || !jumlah1 || !jumlah2 || !hargaModal || !hargaJual1 || !hargaJual2) {
         tr.style.outline = '2px solid var(--red)';
         hasError = true;
         return;
@@ -2054,7 +2050,7 @@ function formBarangTerjual(data = {}) {
       <div class="form-group">
         <label class="form-label">Satuan</label>
         <select class="form-select" name="satuan">
-          ${['Kotak','Set'].map(s =>
+          ${['Sak','Batang','Dus','Lusin','Pcs','Kaleng','Lembar','Meter','Kg','Ton','Buah','Karung','Balok'].map(s =>
             `<option value="${s}" ${data.satuan === s ? 'selected' : ''}>${s}</option>`
           ).join('')}
         </select>
@@ -2493,31 +2489,39 @@ function deleteItem(key, id) {
    ======================== */
 function getStokToko() {
   const map = {};
-  
-  store.stokToko.forEach(b => {
+  store.barangMasuk.forEach(b => {
     const key = b.nama;
     if (!map[key]) {
+      const jml1 = Number(b.jumlah1 || b.jumlah || 1);
+      const jml2 = Number(b.jumlah2 || b.jumlah || 1);
+      const konversi = Math.max(1, Math.floor(jml2 / jml1));
       map[key] = {
-        id: b.id,
         nama: b.nama,
-        satuan1: b.satuan,
-        satuan2: b.satuan,
-        konversi: 1,
-        stokKecil: Number(b.jumlah || 0),
-        hargaModal: Number(b.hargaModal || 0),
-        hargaJual1: Number(b.hargaJual || 0),
-        hargaJual2: Number(b.hargaJual || 0),
-        supplier: ''
+        satuan1: b.satuan1 || b.satuan,
+        satuan2: b.satuan2 || b.satuan,
+        konversi: konversi,
+        stokKecil: 0,
+        hargaModal: b.hargaModal || 0,
+        hargaJual1: b.hargaJual1 || b.hargaJual || 0,
+        hargaJual2: b.hargaJual2 || b.hargaJual || 0,
+        supplier: b.supplier || ''
       };
-    } else {
-      map[key].stokKecil += Number(b.jumlah || 0);
     }
+    map[key].stokKecil += Number(b.jumlah2 || b.jumlah || 0);
+    map[key].supplier   = b.supplier || map[key].supplier;   // supplier pemasok terakhir
+    map[key].hargaModal = b.hargaModal || 0;
+    map[key].hargaJual1 = b.hargaJual1 || b.hargaJual || 0;
+    map[key].hargaJual2 = b.hargaJual2 || b.hargaJual || 0;
   });
 
   store.barangTerjual.forEach(b => {
     const key = b.nama;
     if (map[key]) {
-      map[key].stokKecil -= Number(b.jumlah || 0);
+      if (b.satuan === map[key].satuan1 && map[key].satuan1 !== map[key].satuan2) {
+        map[key].stokKecil -= Number(b.jumlah || 0) * map[key].konversi;
+      } else {
+        map[key].stokKecil -= Number(b.jumlah || 0);
+      }
     }
   });
 
@@ -2525,8 +2529,8 @@ function getStokToko() {
     a.nama.localeCompare(b.nama, 'id', { sensitivity: 'base' })
   );
 
-  const totalModal = items.reduce((s,x) => s + x.stokKecil * x.hargaModal, 0);
-  const totalJual  = items.reduce((s,x) => s + x.stokKecil * x.hargaJual1, 0);
+  const totalModal = items.reduce((s,x) => s + (x.stokKecil / x.konversi) * x.hargaModal, 0);
+  const totalJual  = items.reduce((s,x) => s + (x.stokKecil / x.konversi) * x.hargaJual1, 0);
 
   return { items, totalModal, totalJual };
 }
@@ -2563,10 +2567,6 @@ function stokRowHtml(item) {
     <td>${fmt(item.hargaJual1)} <small class="text-muted">/ ${e(item.satuan1)}</small></td>
     <td>${fmt(nilaiModal)}</td>
     <td class="${untung >= 0 ? 'amount-positive' : 'amount-negative'}">${fmt(untung)}</td>
-    <td class="no-print" style="text-align:right">
-      <button class="btn btn-ghost btn-sm" data-aksi="edit-stok" data-nama="${e(item.nama)}" title="Edit stok">${ico('edit',16)}</button>
-      <button class="btn btn-danger btn-sm" data-aksi="hapus-stok" data-nama="${e(item.nama)}" title="Hapus seluruh riwayat barang ini">${ico('delete',16)}</button>
-    </td>
   </tr>`;
 }
 
@@ -2605,145 +2605,6 @@ function kelompokStok(items, mode) {
 
 const STOK_PER_HALAMAN = 25;
 
-function hapusStok(nama) {
-  if (!confirm(`Yakin ingin menghapus seluruh riwayat barang "${e(nama)}" dari sistem?\nSemua riwayat pembelian dan penjualan barang ini akan hilang.`)) return;
-  store.stokToko = store.stokToko.filter(b => b.nama !== nama);
-  store.barangTerjual = store.barangTerjual.filter(b => b.nama !== nama);
-  saveStore();
-  renderStok();
-  showToast(`Semua riwayat stok "${e(nama)}" berhasil dihapus.`, 'success');
-}
-
-function editStokModal(nama) {
-  const stokMap = getStokToko().items;
-  const item = stokMap.find(x => x.nama === nama);
-  if (!item) return;
-
-  const qtyFisik = item.stokKecil;
-  
-  const html = `<form id="modal-form">
-    <div class="form-grid">
-      <div class="form-group form-full">
-        <label class="form-label">Nama Barang</label>
-        <input type="text" class="form-input" name="namaBaru" value="${e(item.nama)}" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Sisa Fisik Stok (Jml)</label>
-        <input type="number" step="0.01" class="form-input" name="sisaBaru" value="${qtyFisik}" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Satuan Utama</label>
-        <select class="form-select" name="satuanBaru">${satuanOptions(item.satuan1)}</select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Harga Modal (Total per Satuan)</label>
-        <input type="number" class="form-input" name="modalBaru" value="${item.hargaModal}" min="0" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Harga Jual (per Satuan)</label>
-        <input type="number" class="form-input" name="jualBaru" value="${item.hargaJual1}" min="0" required />
-      </div>
-    </div>
-    <div class="form-actions" style="margin-top:20px">
-      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
-      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan Perubahan</button>
-    </div>
-  </form>`;
-
-  openModal('Edit Stok & Harga', html, (form) => {
-    const data = Object.fromEntries(new FormData(form).entries());
-    const newNama = data.namaBaru.trim();
-    if (!newNama) { showToast('Nama tidak boleh kosong.', 'error'); return; }
-
-    const tItem = store.stokToko.find(b => b.nama === nama);
-    if (!tItem) return;
-
-    if (newNama !== nama) {
-      store.stokToko.forEach(b => { if (b.nama === nama) b.nama = newNama; });
-      store.barangTerjual.forEach(b => { if (b.nama === nama) b.nama = newNama; });
-    }
-
-    tItem.hargaModal = Number(data.modalBaru);
-    tItem.hargaJual = Number(data.jualBaru);
-    tItem.satuan = data.satuanBaru;
-    
-    const terjualSum = store.barangTerjual.reduce((s, x) => x.nama === newNama ? s + Number(x.jumlah||0) : s, 0);
-    tItem.jumlah = Number(data.sisaBaru) + terjualSum;
-
-    store.barangTerjual.forEach(b => {
-      if (b.nama === newNama) {
-        b.satuan = data.satuanBaru;
-      }
-    });
-
-    saveStore();
-    closeModal();
-    renderStok();
-    showToast('Data stok berhasil diperbarui.', 'success');
-  });
-}
-
-function openStokAwalModal() {
-  const html = `<form id="modal-form">
-    <div class="form-grid">
-      <div class="form-group form-full">
-        <label class="form-label">Nama Barang</label>
-        <input type="text" class="form-input" name="nama" placeholder="Contoh: Semen Padang" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Jumlah Stok</label>
-        <input type="number" class="form-input" name="jumlah1" min="1" placeholder="0" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Satuan</label>
-        <select class="form-select" name="satuan1">${satuanOptions()}</select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Harga Modal (Total per Satuan)</label>
-        <input type="number" class="form-input" name="hargaModal" min="0" placeholder="0" required />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Harga Jual (per Satuan)</label>
-        <input type="number" class="form-input" name="hargaJual1" min="0" placeholder="0" required />
-      </div>
-    </div>
-    <div class="form-actions" style="margin-top:20px">
-      <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
-      <button type="submit" class="btn btn-primary">${ico('save',17)} Simpan Stok Awal</button>
-    </div>
-  </form>`;
-
-  openModal('Input Stok Awal', html, (form) => {
-    const data = Object.fromEntries(new FormData(form).entries());
-    
-    if (!data.nama.trim() || !data.jumlah1 || !data.hargaModal || !data.hargaJual1) {
-      showToast('Harap lengkapi semua isian.', 'error');
-      return;
-    }
-
-    const existing = store.stokToko.find(x => x.nama.toLowerCase() === data.nama.trim().toLowerCase());
-    if (existing) {
-      showToast('Barang ini sudah ada di Stok Toko! Silakan gunakan fitur Edit di tabel stok.', 'error');
-      return;
-    }
-    
-    const newItem = {
-      id: uid(),
-      nama: data.nama.trim(),
-      jumlah: Number(data.jumlah1),
-      satuan: data.satuan1,
-      hargaModal: Number(data.hargaModal),
-      hargaJual: Number(data.hargaJual1)
-    };
-    
-    store.stokToko.push(newItem);
-    saveStore();
-    closeModal();
-    renderStok();
-    showToast('Stok awal berhasil ditambahkan.', 'success');
-  });
-}
-
 function renderStok() {
   const content = document.getElementById('content');
   const stok = getStokToko();
@@ -2765,7 +2626,7 @@ function renderStok() {
       </div>
       <div class="no-print nx-head-aksi">
         <button class="btn btn-ghost" id="btn-cetak-stok">${ico('print',17)} Cetak</button>
-        <button class="btn btn-dark" id="btn-input-stok-awal">${ico('add',17)}Input Stok Awal</button>
+        <button class="btn btn-dark" id="btn-ke-barang-masuk">${ico('add',17)}Tambah Barang Masuk</button>
       </div>
     </div>
 
@@ -2825,7 +2686,6 @@ function renderStok() {
               <th>Harga Jual</th>
               <th>Nilai Modal</th>
               <th>Est. Untung</th>
-              <th class="no-print" style="width:100px;text-align:right">Aksi</th>
             </tr>
           </thead>
           <tbody id="tbody-stok"></tbody>
@@ -2902,8 +2762,9 @@ function renderStok() {
   document.getElementById('sort-stok').addEventListener('change', ulangDariAwal);
   document.getElementById('grup-stok').addEventListener('change', ulangDariAwal);
 
-  document.getElementById('btn-input-stok-awal').addEventListener('click', () => {
-    openStokAwalModal();
+  document.getElementById('btn-ke-barang-masuk').addEventListener('click', () => {
+    navigate('barang-masuk');
+    openAddModal('barangMasuk');
   });
   document.getElementById('btn-cetak-stok').addEventListener('click', () => {
     const el = document.getElementById('print-header-stok');
