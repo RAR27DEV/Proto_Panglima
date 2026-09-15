@@ -1879,7 +1879,7 @@ function formBarangMasuk(data = {}) {
 }
 
 /* ── SATUAN options helper ── */
-const SATUAN_OPTS = ['Kotak','Set'];
+const SATUAN_OPTS = ['Sak','Batang','Dus','Lusin','Pcs','Kaleng','Lembar','Meter','Kg','Ton','Buah','Karung','Balok','Kotak','Sat','Set'];
 
 document.addEventListener('change', (e) => {
   if (e.target && e.target.classList.contains('ecer-toggle')) {
