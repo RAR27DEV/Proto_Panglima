@@ -756,6 +756,11 @@ function openModal(title, bodyHTML, onSubmit) {
   modalTitle.innerHTML = title;
   modalBody.innerHTML = bodyHTML;
   modalOverlay.classList.add('open');
+
+  modalBody.querySelectorAll('select[data-aksi="pilih-stok"]').forEach(sel => {
+    if (sel.value === '__MANUAL__') handleStockSelection(sel);
+  });
+
   const form = modalBody.querySelector('form');
   if (form && onSubmit) {
     form.addEventListener('submit', (ev) => {
@@ -1760,49 +1765,17 @@ function formatStock(stokKecil, konversi, sat1, sat2) {
 }
 
 function getAvailableStock() {
-  const map = {};
-  store.barangMasuk.forEach(b => {
-    const key = b.nama; // group by nama now
-    if (!map[key]) {
-      const jml1 = Number(b.jumlah1 || b.jumlah || 1);
-      const jml2 = Number(b.jumlah2 || b.jumlah || 1);
-      const konversi = Math.max(1, Math.floor(jml2 / jml1));
-      map[key] = {
-        nama: b.nama,
-        satuan1: b.satuan1 || b.satuan,
-        satuan2: b.satuan2 || b.satuan,
-        konversi: konversi,
-        stokKecil: 0,
-        hargaJual1: b.hargaJual1 || b.hargaJual,
-        hargaJual2: b.hargaJual2 || b.hargaJual
-      };
-    }
-    map[key].stokKecil += Number(b.jumlah2 || b.jumlah || 0);
-    map[key].hargaJual1 = b.hargaJual1 || b.hargaJual;
-    map[key].hargaJual2 = b.hargaJual2 || b.hargaJual;
-  });
-
-  store.barangTerjual.forEach(b => {
-    const key = b.nama;
-    if (map[key]) {
-      // deduct based on unit
-      if (b.satuan === map[key].satuan1 && map[key].satuan1 !== map[key].satuan2) {
-        map[key].stokKecil -= Number(b.jumlah || 0) * map[key].konversi;
-      } else {
-        map[key].stokKecil -= Number(b.jumlah || 0);
-      }
-    }
-  });
-
-  return Object.values(map)
+  return getStokToko().items
     .filter(x => x.stokKecil > 0)
     .sort((a,b) => a.nama.localeCompare(b.nama, 'id', {sensitivity: 'base'}));
 }
 
 function stockDropdownOptions(selectedNama = '') {
   const stocks = getAvailableStock();
-  let html = '<option value="">-- Pilih Barang --</option>';
-  html += '<option value="__MANUAL__" style="color:var(--brand);font-weight:600">+ Isi Barang Manual</option>';
+  let html = '';
+  const isManualDefault = !selectedNama;
+  html += `<option value="__MANUAL__" style="color:var(--brand);font-weight:600" ${isManualDefault ? 'selected' : ''}>+ Isi Barang Manual</option>`;
+  html += `<option value="" disabled>-- Pilih dari Stok --</option>`;
   if (stocks.length === 0) {
     html += '<option value="" disabled>-- Stok Kosong --</option>';
   } else {
@@ -1810,7 +1783,7 @@ function stockDropdownOptions(selectedNama = '') {
       const sel = selectedNama === s.nama ? 'selected' : '';
       const dataObj = encodeURIComponent(JSON.stringify(s));
       const sisaTxt = formatStock(s.stokKecil, s.konversi, s.satuan1, s.satuan2);
-      html += `<option value="${e(s.nama)}" data-stock="${dataObj}" ${sel}>${e(s.nama)} - Sisa: ${sisaTxt}</option>`;
+      html += `<option value="${s.nama}" ${sel} data-stock="${dataObj}">${s.nama} (Sisa: ${sisaTxt})</option>`;
     });
   }
   return html;
@@ -2288,7 +2261,12 @@ function btAddRow() {
       <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bt" data-rid="${rid}">${ico('delete',16)}</button>
     </td>`;
   tbody.appendChild(tr);
-  tr.querySelector('[data-field="nama"]').focus();
+  const select = tr.querySelector('[data-field="nama"]');
+  if (select && select.value === '__MANUAL__') {
+    handleStockSelection(select);
+  } else if (select) {
+    select.focus();
+  }
 }
 
 function btCalcRow(idx) {
