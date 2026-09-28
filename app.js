@@ -1364,10 +1364,8 @@ function cocokRute(x, ruteId) {
    Kalau admin sudah menetapkan rentang tanggal, isian di dalamnya
    tidak boleh keluar dari rentang itu. */
 function batasTanggalGrup() {
-  if (!currentPerjalananId) return null;
-  const pj = store.perjalananList.find(x => x.id === currentPerjalananId);
-  if (!pj || !pj.tanggalMulai || !pj.tanggalSelesai) return null;
-  return { min: pj.tanggalMulai, max: pj.tanggalSelesai, pj };
+  // Sesuai permintaan klien: Bebaskan tanggal agar bisa diubah sesuka hari tanpa batas periode
+  return null;
 }
 
 /** Atribut untuk <input type="date">: nilai awal masuk akal + batas min/max. */
