@@ -605,7 +605,7 @@ function renderRuteSidebar() {
           <span class="nav-icon">${ico('local_shipping')}</span><span>Barang Terjual</span>
         </a>
         <a class="nav-item" data-page="pj-rekap-piutang" data-rute="${rute.id}">
-          <span class="nav-icon">${ico('receipt_long')}</span><span>Rekap Piutang</span>
+          <span class="nav-icon">${ico('receipt_long')}</span><span>Daftar Piutang Rute</span>
         </a>
         <a class="nav-item" data-page="pj-uang-keluar" data-rute="${rute.id}">
           <span class="nav-icon">${ico('payments')}</span><span>Uang Keluar</span>
@@ -1182,6 +1182,36 @@ function renderDashboard() {
             }).join('') : `<div class="empty-state-sub">Tidak ada piutang aktif</div>`}
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Panduan Cepat — Aksi yang paling sering dilakukan -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header">
+        <div class="card-title">${ico('rocket_launch')} Aksi Cepat</div>
+        <span style="font-size:12px;color:var(--muted);">Klik untuk langsung ke halaman</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+        <button class="btn-aksi-cepat" data-nav="rekap-per-bulan">
+          ${ico('calendar_month',28)}
+          <span>Rekap Bulan Ini</span>
+          <small>Lihat ringkasan per bulan</small>
+        </button>
+        <button class="btn-aksi-cepat" data-nav="stok-toko">
+          ${ico('shelves',28)}
+          <span>Cek Stok</span>
+          <small>Lihat stok barang toko</small>
+        </button>
+        <button class="btn-aksi-cepat" data-nav="laporan-keuangan">
+          ${ico('bar_chart',28)}
+          <span>Laporan Keuangan</span>
+          <small>Ringkasan keuangan toko</small>
+        </button>
+        <button class="btn-aksi-cepat" data-nav="rekap-semua-rute">
+          ${ico('query_stats',28)}
+          <span>Rekap Semua Rute</span>
+          <small>Perbandingan antar rute</small>
+        </button>
       </div>
     </div>
 
@@ -3031,6 +3061,48 @@ function renderRekapPerBulan() {
       });
     });
 
+    // ── Data yatim (perjalananId null atau tidak valid) per rute di bulan ini ──
+    (store.ruteList || []).forEach(rute => {
+      const ruteId = rute.id;
+      const pjIds = (store.perjalananList || []).map(p => p.id);
+
+      // Filter barang masuk yatim
+      const bmYatim = (store.barangMasuk || []).filter(b =>
+        b.ruteId === ruteId &&
+        b.tanggal >= startDate &&
+        b.tanggal <= endDate &&
+        (!b.perjalananId || !pjIds.includes(b.perjalananId))
+      );
+      const btYatim = (store.barangTerjual || []).filter(b =>
+        b.ruteId === ruteId &&
+        b.tanggal >= startDate &&
+        b.tanggal <= endDate &&
+        (!b.perjalananId || !pjIds.includes(b.perjalananId))
+      );
+
+      if (bmYatim.length === 0 && btYatim.length === 0) return;
+
+      const totalMasukYatim = bmYatim.reduce((s, b) => s + bmItemTotal(b), 0);
+      const totalTerjualYatim = btYatim.reduce((s, b) => s + Number(b.jumlah || 0) * Number(b.hargaJual || 0), 0);
+      const totalData = bmYatim.length + btYatim.length;
+
+      rows.push({
+        ruteId,
+        namaRute: rute.nama,
+        label: `⚠ Data tidak terpasang ke perjalanan`,
+        isYatim: true,
+        jumlahPj: 0,
+        pjIds: '',
+        jumlahData: totalData,
+        berlanjut: false,
+        terjual: totalTerjualYatim,
+        masuk: totalMasukYatim,
+        keluar: 0,
+        uangMasuk: 0,
+        keuntungan: totalTerjualYatim - totalMasukYatim,
+      });
+    });
+
     const jumlahRuteAktif = rows.length;
     const grandTerjual    = rows.reduce((s, r) => s + r.terjual, 0);
     const grandMasuk      = rows.reduce((s, r) => s + r.masuk, 0);
@@ -3040,7 +3112,31 @@ function renderRekapPerBulan() {
 
     const rowsHTML = rows.length === 0
       ? `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);">Tidak ada perjalanan yang berangkat pada ${labelBulan}</td></tr>`
-      : rows.map((r, i) => `
+      : rows.map((r, i) => r.isYatim ? `
+          <tr style="background:rgba(234,179,8,0.08);border-left:3px solid #ca8a04;">
+            <td style="text-align:center;color:var(--muted);padding:10px 8px;">${i + 1}</td>
+            <td class="primary" style="font-weight:700;padding:10px 8px;white-space:nowrap;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                ${ico('local_shipping', 16)}
+                <span>${e(r.namaRute)}</span>
+              </div>
+            </td>
+            <td style="font-size:12px;padding:10px 8px;">
+              <div style="font-weight:600;color:#92400e;white-space:nowrap;">${r.label}</div>
+              <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;">
+                <span class="badge badge-yellow">⚠ Data lepas</span>
+                <span class="badge">${r.jumlahData} data</span>
+              </div>
+            </td>
+            <td style="text-align:right;color:var(--red);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.masuk)}</td>
+            <td style="text-align:right;color:var(--green);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.terjual)}</td>
+            <td style="text-align:right;color:var(--red);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.keluar)}</td>
+            <td style="text-align:right;color:var(--green);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.uangMasuk)}</td>
+            <td style="text-align:right;font-weight:800;padding:10px 8px;white-space:nowrap;color:${r.keuntungan >= 0 ? 'var(--green)' : 'var(--red)'}">${r.keuntungan >= 0 ? '' : '-'}${fmt(Math.abs(r.keuntungan))}</td>
+            <td class="no-print" style="text-align:center;padding:10px 8px;white-space:nowrap;">
+              <button class="btn btn-sm" style="background:#fef3c7;color:#92400e;border:1px solid #d97706;border-radius:7px;" data-aksi="rbp-perbaiki-yatim" data-rute="${r.ruteId}" data-nama-rute="${e(r.namaRute)}">${ico('build', 14)} Perbaiki</button>
+            </td>
+          </tr>` : `
           <tr>
             <td style="text-align:center;color:var(--muted);padding:10px 8px;">${i + 1}</td>
             <td class="primary" style="font-weight:700;padding:10px 8px;white-space:nowrap;">
@@ -3188,6 +3284,34 @@ function renderRekapPerBulan() {
           <div class="print-subtitle">Periode: ${MONTHS[selBulan]} ${selTahun} &bull; Dicetak: ${formatDate(today())}</div>`;
       }
       window.print();
+    });
+
+    // Handler tombol Perbaiki untuk data yatim
+    document.querySelectorAll('[data-aksi="rbp-perbaiki-yatim"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const namaRute = btn.dataset.namaRute || '';
+        openModal(
+          `${ico('warning', 18)} Data Lepas — Rute ${e(namaRute)}`,
+          `<div style="padding:8px 0;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:14px;background:#fef3c7;border-radius:10px;border:1px solid #d97706;">
+              ${ico('warning', 22)}
+              <div>
+                <div style="font-weight:700;color:#92400e;font-size:14px;">Data ini tidak terpasang ke perjalanan manapun</div>
+                <div style="font-size:12px;color:#78350f;margin-top:4px;">Data barang masuk atau barang terjual milik rute ini tidak memiliki perjalanan yang terdaftar.</div>
+              </div>
+            </div>
+            <div style="font-size:13px;color:var(--ink);line-height:1.7;">
+              <b>Cara memperbaiki:</b>
+              <ol style="margin:8px 0 0 18px;padding:0;">
+                <li>Buka halaman <b>Barang Masuk</b> atau <b>Barang Terjual</b> di rute <b>${e(namaRute)}</b>.</li>
+                <li>Cari data yang tidak memiliki perjalanan, lalu edit dan pilih perjalanan yang sesuai.</li>
+                <li>Setelah disimpan, data ini tidak akan muncul lagi di sini.</li>
+              </ol>
+            </div>
+          </div>`,
+          null
+        );
+      });
     });
   }
 
@@ -4300,6 +4424,11 @@ function openMultiBarangMasukModal() {
 
     if (!tanggal) { showToast('Tanggal wajib diisi!', 'error'); return; }
     if (!supplier) { showToast('Nama supplier wajib diisi!', 'error'); return; }
+    // Validasi: jika sedang di halaman rute, perjalanan harus dipilih dulu
+    if (currentRuteId && !currentPerjalananId) {
+      showToast('Pilih perjalanan terlebih dahulu sebelum menyimpan', 'error');
+      return;
+    }
 
     const tbody = document.getElementById('bm-rows');
     const rows  = Array.from(tbody.querySelectorAll('tr'));
