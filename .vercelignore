@@ -1,0 +1,8 @@
+api/*.php
+api/.htaccess
+sql/
+data/
+*.sqlite*
+sync_data.py
+test_full.cjs
+vercel/

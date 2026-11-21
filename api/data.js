@@ -1,36 +1,35 @@
 // GET /api/data — ambil semua data toko
-// Vercel Serverless Function (Node.js)
-import { createClient } from '@supabase/supabase-js';
-import { verifySession, jsonErr } from '../_lib/auth.js';
-import { SCHEMA_MAP } from '../_lib/schema_map.js';
+import { getSupabase, verifySession, jsonErr } from '../lib/auth.js';
+import { SCHEMA_MAP } from '../lib/schema_map.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return jsonErr(res, 405, 'Metode tidak diizinkan.');
 
   const session = await verifySession(req, res);
-  if (!session) return; // verifySession sudah kirim 401
+  if (!session) return; // verifySession sudah mengirim respon 401
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
+  const supabase = getSupabase();
 
   try {
     const store = {};
 
     for (const [koleksi, def] of Object.entries(SCHEMA_MAP)) {
+      // Alias format: jsName:db_col (contoh: ruteId:rute_id)
       const cols = Object.entries(def.kolom)
-        .map(([js, db]) => `${db}:${js}`) // alias: db_col:jsName
+        .map(([js, db]) => js === db ? db : `${js}:${db}`)
         .join(',');
 
       let q = supabase.from(def.tabel).select(cols);
-      if (koleksi === 'ruteList') q = q.order('urutan').order('nama');
-      else if (def.kolom.tanggal) q = q.order('tanggal').order('id');
+      if (koleksi === 'ruteList') {
+        q = q.order('urutan').order('nama');
+      } else if (def.kolom.tanggal) {
+        q = q.order('tanggal').order('id');
+      }
 
       const { data, error } = await q;
       if (error) throw error;
 
-      // Rapikan tipe angka
+      // Rapikan tipe angka sesuai schema
       store[koleksi] = (data || []).map(row => {
         const r = { ...row };
         for (const f of def.angka) {
@@ -44,11 +43,10 @@ export default async function handler(req, res) {
       ok: true,
       store,
       user: { nama: session.nama_tampilan, username: session.username },
-      csrf: session.token, // pakai token sesi sebagai CSRF
+      csrf: session.token,
     });
   } catch (e) {
     console.error('data.js error:', e);
     return jsonErr(res, 500, 'Gagal memuat data.');
   }
 }
-

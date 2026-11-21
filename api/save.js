@@ -1,7 +1,6 @@
-// POST /api/save — simpan semua data toko (upsert + delete)
-import { createClient } from '@supabase/supabase-js';
-import { verifySession, verifyCsrf, jsonErr } from '../_lib/auth.js';
-import { SCHEMA_MAP } from '../_lib/schema_map.js';
+// POST /api/save — simpan data toko
+import { getSupabase, verifySession, verifyCsrf, jsonErr } from '../lib/auth.js';
+import { SCHEMA_MAP } from '../lib/schema_map.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return jsonErr(res, 405, 'Metode tidak diizinkan.');
@@ -9,17 +8,17 @@ export default async function handler(req, res) {
   const session = await verifySession(req, res);
   if (!session) return;
 
-  if (!verifyCsrf(req, session)) return jsonErr(res, 419, 'Token keamanan tidak valid. Muat ulang halaman.');
+  if (!verifyCsrf(req, session)) {
+    return jsonErr(res, 419, 'Token keamanan tidak valid. Muat ulang halaman.');
+  }
 
-  const body = req.body;
+  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
   const input = body?.store;
-  if (!input || typeof input !== 'object') return jsonErr(res, 400, 'Format data tidak valid.');
+  if (!input || typeof input !== 'object') {
+    return jsonErr(res, 400, 'Format data tidak valid.');
+  }
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_ANON_KEY
-  );
-
+  const supabase = getSupabase();
   const ringkas = {};
 
   try {
@@ -28,7 +27,6 @@ export default async function handler(req, res) {
       const tabel = def.tabel;
       const idsMasuk = [];
 
-      // Siapkan baris yang valid
       const toUpsert = [];
       for (const row of rows) {
         if (!row || typeof row !== 'object') continue;
@@ -55,15 +53,15 @@ export default async function handler(req, res) {
         toUpsert.push(dbRow);
       }
 
-      // Upsert
+      // Upsert data baru/update
       if (toUpsert.length > 0) {
         const { error } = await supabase.from(tabel).upsert(toUpsert, { onConflict: 'id' });
         if (error) throw error;
       }
 
-      // Hapus yang tidak ada
+      // Hapus data yang sudah dibuang di client
       if (idsMasuk.length > 0) {
-        const { error } = await supabase.from(tabel).delete().not('id', 'in', `(${idsMasuk.map(i => `"${i}"`).join(',')})`);
+        const { error } = await supabase.from(tabel).delete().not('id', 'in', `(${idsMasuk.join(',')})`);
         if (error) throw error;
       } else {
         const { error } = await supabase.from(tabel).delete().neq('id', '');
@@ -73,7 +71,7 @@ export default async function handler(req, res) {
       ringkas[koleksi] = idsMasuk.length;
     }
 
-    // Catat log
+    // Catat riwayat log aktivitas
     await supabase.from('log_aktivitas').insert({
       pengguna_id: session.id,
       aksi: 'simpan_data',
@@ -84,7 +82,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, tersimpan: ringkas });
   } catch (e) {
     console.error('save.js error:', e);
-    return jsonErr(res, 500, 'Gagal menyimpan data. Perubahan terakhir dibatalkan.');
+    return jsonErr(res, 500, 'Gagal menyimpan data.');
   }
 }
-
