@@ -5,5 +5,9 @@
   "scripts": {
     "dev": "npx live-server --port=3000 --host=localhost --open=index.html --no-browser"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^2.4.3"
+  },
+  "type": "module"
 }

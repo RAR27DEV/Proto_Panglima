@@ -98,10 +98,38 @@ function db(): PDO
             // Hanya untuk uji coba di komputer sendiri.
             $pdo = new PDO('sqlite:' . $CONFIG['db_file'], null, null, $opts);
             $pdo->exec('PRAGMA foreign_keys = ON');
+
+            // Auto-migrasi kolom rute_id, perjalanan_id & diskon pada barang_masuk
+            try {
+                $cols = $pdo->query("PRAGMA table_info(barang_masuk)")->fetchAll(PDO::FETCH_COLUMN, 1);
+                if (!empty($cols)) {
+                    if (!in_array('rute_id', $cols, true)) {
+                        $pdo->exec("ALTER TABLE barang_masuk ADD COLUMN rute_id TEXT NULL");
+                    }
+                    if (!in_array('perjalanan_id', $cols, true)) {
+                        $pdo->exec("ALTER TABLE barang_masuk ADD COLUMN perjalanan_id TEXT NULL");
+                    }
+                    if (!in_array('diskon', $cols, true)) {
+                        $pdo->exec("ALTER TABLE barang_masuk ADD COLUMN diskon REAL NOT NULL DEFAULT 0");
+                    }
+                }
+            } catch (Throwable $t) {}
         } else {
             // Produksi (Rumahweb / cPanel)
             $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $CONFIG['db_host'], $CONFIG['db_name']);
             $pdo = new PDO($dsn, $CONFIG['db_user'], $CONFIG['db_pass'], $opts);
+
+            // Auto-migrasi kolom rute_id, perjalanan_id & diskon pada barang_masuk
+            try {
+                $cols = $pdo->query("SHOW COLUMNS FROM `barang_masuk` LIKE 'rute_id'")->fetchAll();
+                if (empty($cols)) {
+                    $pdo->exec("ALTER TABLE `barang_masuk` ADD COLUMN `rute_id` VARCHAR(40) NULL AFTER `id`, ADD COLUMN `perjalanan_id` VARCHAR(40) NULL AFTER `rute_id`");
+                }
+                $diskonCol = $pdo->query("SHOW COLUMNS FROM `barang_masuk` LIKE 'diskon'")->fetchAll();
+                if (empty($diskonCol)) {
+                    $pdo->exec("ALTER TABLE `barang_masuk` ADD COLUMN `diskon` DECIMAL(6,2) NOT NULL DEFAULT 0 AFTER `harga_modal`");
+                }
+            } catch (Throwable $t) {}
         }
     } catch (Throwable $e) {
         error_log('DB connect gagal: ' . $e->getMessage());

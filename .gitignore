@@ -6,9 +6,22 @@ stitch_simple_markdown_ui/
 
 # Kredensial database — JANGAN pernah masuk ke repositori
 api/config.php
+.env
+.env.local
+.env.production
 
 # Database uji coba lokal
 data/
+*.sqlite
+*.sqlite-journal
 
-.vercel
-.env*
+# File sementara / test
+api/seed_big.php
+api/seed_full.php
+api/count_all.php
+api/check_schema.php
+api/verify_data.php
+test_full.cjs
+Update_App_Saja.zip
+Update_App_Saja/
+*.zip

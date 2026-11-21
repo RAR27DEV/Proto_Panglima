@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/data",   "destination": "/vercel/api/data.js" },
+    { "source": "/api/save",   "destination": "/vercel/api/save.js" },
+    { "source": "/api/login",  "destination": "/vercel/api/login.js" },
+    { "source": "/api/logout", "destination": "/vercel/api/logout.js" },
+    { "source": "/(.*)",       "destination": "/index.html" }
+  ]
+}

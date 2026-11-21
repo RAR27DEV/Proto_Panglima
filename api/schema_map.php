@@ -33,14 +33,15 @@ return [
     'barangMasuk' => [
         'tabel'  => 'barang_masuk',
         'kolom'  => [
-            'id' => 'id', 'tanggal' => 'tanggal', 'supplier' => 'supplier', 'nama' => 'nama',
+            'id' => 'id', 'ruteId' => 'rute_id', 'perjalananId' => 'perjalanan_id',
+            'tanggal' => 'tanggal', 'supplier' => 'supplier', 'nama' => 'nama',
             'jumlah1' => 'jumlah1', 'satuan1' => 'satuan1',
             'jumlah2' => 'jumlah2', 'satuan2' => 'satuan2',
             'jumlah'  => 'jumlah',  'satuan'  => 'satuan',
-            'hargaModal' => 'harga_modal', 'hargaJual' => 'harga_jual',
+            'hargaModal' => 'harga_modal', 'diskon' => 'diskon', 'hargaJual' => 'harga_jual',
             'hargaJual1' => 'harga_jual1', 'hargaJual2' => 'harga_jual2',
         ],
-        'angka'  => ['jumlah1','jumlah2','jumlah','hargaModal','hargaJual','hargaJual1','hargaJual2'],
+        'angka'  => ['jumlah1','jumlah2','jumlah','hargaModal','diskon','hargaJual','hargaJual1','hargaJual2'],
         'tanggal'=> ['tanggal'],
         'enum'   => [],
     ],

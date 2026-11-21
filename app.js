@@ -215,6 +215,11 @@ function seedData() {
     { id: uid(), tanggal: '2026-08-06', supplier: 'SMS',         nama: 'Sarung Tangan Bintik',     jumlah: 8,  satuan: 'Lusin', hargaModal: 25000,  hargaJual: 35000 },
     { id: uid(), tanggal: '2026-08-09', supplier: 'Jotasindo',   nama: 'Cat Samurai Campur Warna', jumlah: 10, satuan: 'Lusin', hargaModal: 448000, hargaJual: 550000 },
     { id: uid(), tanggal: '2026-08-12', supplier: 'Buyaris',     nama: 'Kawat Hijau',              jumlah: 10, satuan: 'Rol',   hargaModal: 55000,  hargaJual: 70000 },
+    // BARANG MASUK RUTE (Luar Kota)
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-13', supplier: 'Kapusi', nama: 'Meter Hitam 5M', jumlah1: 25, satuan1: 'Pcs', hargaModal: 24000, hargaJual1: 32000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-1', tanggal: '2026-05-13', supplier: 'Jotasindo', nama: 'Cat Samurai Campur Warna', jumlah1: 5, satuan1: 'Lusin', hargaModal: 448000, hargaJual1: 550000 },
+    { id: uid(), ruteId: 'rute-bengkulu', perjalananId: 'pj-bengkulu-2', tanggal: '2026-06-14', supplier: 'Buyaris', nama: 'Kawat Hijau', jumlah1: 20, satuan1: 'Rol', hargaModal: 55000, hargaJual1: 70000 },
+    { id: uid(), ruteId: 'rute-jambi',    perjalananId: 'pj-jambi-1',    tanggal: '2026-05-14', supplier: 'Kapusi', nama: 'Gergaji Kayu Kapusi', jumlah1: 15, satuan1: 'Pcs', hargaModal: 30000, hargaJual1: 40000 },
   ];
   store.utang = [
     { id: uid(), tanggal: '2026-05-04', keterangan: 'Hutang barang ke Kapusi (meteran & gergaji)', jumlah: 1710000, status: 'Lunas' },
@@ -390,11 +395,16 @@ const pageMap = {
   'tagihan':         () => renderList('tagihan'),
   'uang-keluar-lk':  () => renderList('uangKeluarLK'),
   'uang-masuk':      () => renderList('uangMasuk'),
+  'pj-barang-masuk':   () => renderCategoryTripList(currentRuteId, 'barangMasuk'),
   'pj-barang-terjual': () => renderCategoryTripList(currentRuteId, 'barangTerjual'),
   'pj-rekap-piutang':  () => renderCategoryTripList(currentRuteId, 'rekapPiutang'),
   'pj-tagihan':        () => renderCategoryTripList(currentRuteId, 'tagihan'),
   'pj-uang-keluar':    () => renderCategoryTripList(currentRuteId, 'uangKeluarLK'),
   'pj-uang-masuk':     () => renderCategoryTripList(currentRuteId, 'uangMasuk'),
+  'pj-keuntungan':     () => renderKeuntunganRute(currentRuteId),
+  'rekap-semua-rute':  renderRekapSemuaRute,
+  'rekap-per-bulan':   renderRekapPerBulan,
+  'backup-data':       renderBackupPage,
   'stok-toko':       renderStok,
   'laporan-keuangan':renderLaporan,
   'penjelasan-laporan': renderPenjelasanLaporan,
@@ -413,11 +423,16 @@ const pageTitles = {
   'tagihan':         'Tagihan (Rute)',
   'uang-keluar-lk':  'Uang Keluar (Rute)',
   'uang-masuk':      'Uang Masuk (Rute)',
+  'pj-barang-masuk':   'Barang Masuk',
   'pj-barang-terjual': 'Barang Terjual',
   'pj-rekap-piutang':  'Rekap Piutang',
   'pj-tagihan':        'Tagihan',
   'pj-uang-keluar':    'Uang Keluar',
   'pj-uang-masuk':     'Uang Masuk',
+  'pj-keuntungan':     'Keuntungan Rute',
+  'rekap-semua-rute':  'Rekap Keuntungan Semua Rute',
+  'rekap-per-bulan':   'Rekap Per Bulan',
+  'backup-data':       'Backup & Restore Data Toko',
   'stok-toko':       'Stok Toko',
   'laporan-keuangan':'Laporan Keuangan',
   'penjelasan-laporan': 'Penjelasan Laporan Keuangan',
@@ -437,6 +452,8 @@ function getAvailableMonthYears(key) {
   let data = store[key] || [];
   if (currentRuteId && key !== 'ruteList') {
     data = data.filter(x => x.ruteId === currentRuteId);
+  } else if (!currentRuteId && (key === 'barangMasuk' || key === 'uangKeluar')) {
+    data = data.filter(x => !x.ruteId);
   }
   const months = new Set(), years = new Set();
   data.forEach(x => {
@@ -565,7 +582,12 @@ function renderRuteSidebar() {
   const container = document.getElementById('dynamic-rute-sidebar');
   if (!container) return;
 
-  let html = '';
+  let html = `
+    <a class="nav-item" data-page="rekap-semua-rute" id="nav-rute-rekap-semua" style="margin-bottom:6px;border-left:3px solid var(--brand);background:rgba(15,118,110,0.06);">
+      <span class="nav-icon" style="color:var(--brand);">${ico('query_stats')}</span>
+      <span style="font-weight:700;color:var(--brand);">Rekap Semua Rute</span>
+    </a>
+  `;
   store.ruteList.forEach(rute => {
     html += `
       <div class="nav-section-label collapsible" data-submenu="submenu-rute-${rute.id}">
@@ -573,14 +595,17 @@ function renderRuteSidebar() {
         <span class="chevron" id="chevron-rute-${rute.id}">▼</span>
       </div>
       <div class="submenu" id="submenu-rute-${rute.id}">
+        <a class="nav-item" data-page="pj-keuntungan" data-rute="${rute.id}">
+          <span class="nav-icon">${ico('trending_up')}</span><span>Keuntungan Rute</span>
+        </a>
+        <a class="nav-item" data-page="pj-barang-masuk" data-rute="${rute.id}">
+          <span class="nav-icon">${ico('inventory_2')}</span><span>Barang Masuk</span>
+        </a>
         <a class="nav-item" data-page="pj-barang-terjual" data-rute="${rute.id}">
           <span class="nav-icon">${ico('local_shipping')}</span><span>Barang Terjual</span>
         </a>
         <a class="nav-item" data-page="pj-rekap-piutang" data-rute="${rute.id}">
           <span class="nav-icon">${ico('receipt_long')}</span><span>Rekap Piutang</span>
-        </a>
-        <a class="nav-item" data-page="pj-tagihan" data-rute="${rute.id}">
-          <span class="nav-icon">${ico('request_quote')}</span><span>Tagihan</span>
         </a>
         <a class="nav-item" data-page="pj-uang-keluar" data-rute="${rute.id}">
           <span class="nav-icon">${ico('payments')}</span><span>Uang Keluar</span>
@@ -699,17 +724,35 @@ function bukaSubmenuAktif() {
    rute) tidak perlu dipasangi listener lagi — dan Content-Security-Policy
    boleh tetap melarang skrip inline. */
 const AKSI_KLIK = {
-  'tutup-modal':      ()   => closeModal(),
+  'tutup-modal':      ()   => tryCloseModal(),
   'lunas':            (el) => toggleLunas(el.dataset.key, el.dataset.id),
   'ubah':             (el) => openEditModal(el.dataset.key, el.dataset.id),
   'hapus':            (el) => deleteItem(el.dataset.key, el.dataset.id),
   'buka-perjalanan':  (el) => openPerjalananCategory(el.dataset.rute || null, el.dataset.pj, el.dataset.key),
   'ubah-perjalanan':  (el) => openEditPerjalanan(el.dataset.pj, el.dataset.key),
   'hapus-perjalanan': (el) => deletePerjalanan(el.dataset.pj, el.dataset.rute || null, el.dataset.key),
-  'hapus-baris-bm':   (el) => bmRemoveRow(el.dataset.idx),
+  'hapus-baris-bm':   (el) => bmRemoveRow(el.dataset.idx || el.dataset.rid),
+  'duplikat-baris-bm':(el) => bmDuplicateRow(el.dataset.idx || el.dataset.rid),
   'hapus-baris-bt':   (el) => btRemoveRow(el.dataset.rid),
+  'duplikat-baris-bt':(el) => btDuplicateRow(el.dataset.rid),
   'edit-stok':        (el) => editStokModal(el.dataset.nama),
   'hapus-stok':       (el) => hapusStok(el.dataset.nama),
+  'buka-keuntungan-rute': (el) => navigate('pj-keuntungan', el.dataset.rute),
+  // Dari Rekap Per Bulan: buka Keuntungan Rute langsung di perjalanan (atau rentang tanggal) yang diklik
+  'buka-keuntungan-trip': (el) => {
+    filterKeuntungan.startDate    = el.dataset.mulai || '';
+    filterKeuntungan.endDate      = el.dataset.selesai || '';
+    filterKeuntungan.perjalananId = el.dataset.pj || '';
+    navigate('pj-keuntungan', el.dataset.rute);
+  },
+  // Dari Rekap Per Bulan: buka modal detail transaksi satu perjalanan langsung (tidak pindah halaman)
+  'rbp-detail-perjalanan': (el) => {
+    const ruteId   = el.dataset.rute;
+    const pjIds    = (el.dataset.pjIds || el.dataset.pj || '').split(',').filter(Boolean);
+    const label    = el.dataset.label || '';
+    const namaRute = el.dataset.namaRute || '';
+    bukaModalDetailPerjalanan(ruteId, pjIds, namaRute, label);
+  },
 };
 
 document.addEventListener('click', (ev) => {
@@ -717,7 +760,7 @@ document.addEventListener('click', (ev) => {
   if (!t || !t.closest) return;
 
   const tujuan = t.closest('[data-nav]');
-  if (tujuan) { navigate(tujuan.dataset.nav); return; }
+  if (tujuan) { navigate(tujuan.dataset.nav, tujuan.dataset.rute); return; }
 
   const el = t.closest('[data-aksi]');
   const jalankan = el && AKSI_KLIK[el.dataset.aksi];
@@ -728,12 +771,16 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('change', (ev) => {
   const el = ev.target.closest?.('[data-aksi="pilih-stok"]');
   if (el) handleStockSelection(el);
+  const elBm = ev.target.closest?.('[data-aksi="pilih-stok-bm"]');
+  if (elBm) handleStockSelectionBM(elBm);
 });
 
 /* Jumlah / harga diubah -> hitung ulang total baris */
 document.addEventListener('input', (ev) => {
   const el = ev.target.closest?.('[data-aksi="hitung-baris-bt"]');
   if (el) btCalcRow(el.dataset.rid);
+  const elBm = ev.target.closest?.('[data-aksi="hitung-baris-bm"]');
+  if (elBm) bmCalcRow(elBm.dataset.rid);
 });
 
 /* ========================
@@ -760,6 +807,9 @@ function openModal(title, bodyHTML, onSubmit) {
   modalBody.querySelectorAll('select[data-aksi="pilih-stok"]').forEach(sel => {
     if (sel.value === '__MANUAL__') handleStockSelection(sel);
   });
+  modalBody.querySelectorAll('select[data-aksi="pilih-stok-bm"]').forEach(sel => {
+    if (sel.value === '__MANUAL__') handleStockSelectionBM(sel);
+  });
 
   const form = modalBody.querySelector('form');
   if (form && onSubmit) {
@@ -770,15 +820,54 @@ function openModal(title, bodyHTML, onSubmit) {
   }
 }
 
+function isModalFormDirty() {
+  if (!modalBody) return false;
+  // Periksa apakah pengguna sudah mengetik atau memasukkan data
+  const inputs = modalBody.querySelectorAll('input:not([type="hidden"]), select, textarea');
+  for (const inp of inputs) {
+    if (inp.id === 'bm-tanggal' || inp.id === 'bt-tanggal' || inp.name === 'tanggal') continue;
+    if (inp.type === 'number' && Number(inp.value) > 0) return true;
+    if ((inp.type === 'text' || inp.tagName === 'TEXTAREA') && inp.value.trim().length > 0) return true;
+    if (inp.dataset && (inp.dataset.field === 'nama' || inp.dataset.field === 'pelanggan' || inp.dataset.field === 'supplier') && inp.value && inp.value !== '__MANUAL__') return true;
+  }
+  const multiRows = modalBody.querySelectorAll('#bm-rows tr, #bt-rows tr');
+  if (multiRows.length > 1) return true;
+  return false;
+}
+
+function tryCloseModal() {
+  if (isModalFormDirty()) {
+    if (!confirm('Perhatian: Data yang sedang Anda isi belum disimpan.\n\nYakin ingin membatalkan dan menutup form? (Draf ketikan Anda tetap tersimpan)')) {
+      return;
+    }
+  }
+  closeModal();
+}
+
 function closeModal() {
   modalOverlay.classList.remove('open');
   // dibereskan setelah animasi tutup selesai, supaya modal tidak mengkerut dulu
   setTimeout(() => { modalBody.innerHTML = ''; setLebarModal(''); }, 300);
 }
 
-document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-close').addEventListener('click', tryCloseModal);
+
+// PENTING: JANGAN tutup modal hanya karena kursor mouse keluar atau mengklik overlay latar belakang!
+// Menjawab komplain klien: "tiap den ma arahan kursor mouse ko kalua dari menu ko malah ta batalan"
 modalOverlay.addEventListener('click', (ev) => {
-  if (ev.target === modalOverlay) closeModal();
+  if (ev.target === modalOverlay) {
+    // Animasi responsif lembut jika klik di luar agar user tahu modal tetap aktif dan aman
+    if (modalBox) {
+      modalBox.style.transform = 'scale(1.012)';
+      setTimeout(() => { if (modalBox) modalBox.style.transform = ''; }, 140);
+    }
+  }
+});
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && modalOverlay.classList.contains('open')) {
+    tryCloseModal();
+  }
 });
 
 /* ========================
@@ -796,6 +885,28 @@ function showToast(msg, type = 'success') {
    ======================== */
 function sumField(arr, field) {
   return arr.reduce((s, x) => s + Number(x[field] || 0), 0);
+}
+
+/** Hitung total modal satu baris Barang Masuk setelah diskon persen (opsional). */
+function bmItemTotal(b) {
+  const qty    = Number(b.jumlah1 || b.jumlah || 0);
+  const harga  = Number(b.hargaModal || 0);
+  const diskon = Math.max(0, Math.min(100, Number(b.diskon || 0)));
+  return qty * harga * (1 - diskon / 100);
+}
+
+function hitungTotalUangKey(key, rows) {
+  if (!rows || !rows.length) return 0;
+  if (key === 'barangMasuk') {
+    return rows.reduce((s, b) => s + bmItemTotal(b), 0);
+  }
+  if (key === 'barangTerjual') {
+    return rows.reduce((s, b) => s + Number(b.jumlah || 0) * Number(b.hargaJual || 0), 0);
+  }
+  if (key === 'uangKeluar' || key === 'uangKeluarLK' || key === 'uangMasuk' || key === 'tagihan' || key === 'rekapPiutang' || key === 'utang' || key === 'piutang') {
+    return rows.reduce((s, x) => s + Number(x.jumlah || 0), 0);
+  }
+  return 0;
 }
 
 /* ========================
@@ -995,23 +1106,27 @@ function renderDashboard() {
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">${ico('inventory_2')} Stok Masuk Terbaru</div>
-            <button class="nx-lihat" data-nav="barang-masuk">Lihat Semua ${ico('arrow_forward',16)}</button>
+            <div class="card-title">${ico('shelves')} Stok Toko Saat Ini (Real-Time)</div>
+            <button class="nx-lihat" data-nav="stok-toko">Lihat Stok Toko ${ico('arrow_forward',16)}</button>
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Item</th><th>Supplier</th><th>Qty</th><th style="text-align:right">Total (Rp)</th></tr></thead>
+              <thead><tr><th>Nama Barang</th><th>Sisa Stok</th><th>Harga Modal</th><th>Harga Jual</th><th style="text-align:right">Status</th></tr></thead>
               <tbody>
-                ${barangTerbaru.length ? barangTerbaru.map(b => {
-                  const qty = Number(b.jumlah1 || b.jumlah || 0);
-                  const sat = e(b.satuan1 || b.satuan || '');
+                ${stok.items.length ? stok.items.slice(0, 6).map(s => {
+                  const sisaTxt = formatStock(s.stokKecil, s.konversi, s.satuan1, s.satuan2);
+                  const st = stokStatus(s);
                   return `<tr>
-                    <td class="primary">${e(b.nama)}<div class="nx-daftar-sub">${e(jarakHari(b.tanggal))}</div></td>
-                    <td>${e(b.supplier || '—')}</td>
-                    <td>${fmtNum(qty)} ${sat}</td>
-                    <td style="text-align:right;font-weight:700;white-space:nowrap">${fmt(qty * Number(b.hargaModal || 0))}</td>
+                    <td class="primary">
+                      ${e(s.nama)}
+                      <div class="nx-daftar-sub">Satuan: ${e(s.satuan1)}${s.satuan2 && s.satuan2 !== s.satuan1 ? ' / ' + e(s.satuan2) : ''}</div>
+                    </td>
+                    <td><strong>${sisaTxt}</strong></td>
+                    <td>${fmt(s.hargaModal)}</td>
+                    <td>${fmt(s.hargaJual1)}</td>
+                    <td style="text-align:right"><span class="badge ${st.cls}">${e(st.label)}</span></td>
                   </tr>`;
-                }).join('') : `<tr><td colspan="4" style="padding:34px;text-align:center;color:var(--muted)">Belum ada barang masuk</td></tr>`}
+                }).join('') : `<tr><td colspan="5" style="padding:34px;text-align:center;color:var(--muted)">Belum ada data stok toko</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -1097,20 +1212,24 @@ const listConfig = {
       const sat1  = b.satuan1 || b.satuan || '';
       const adaEcer = b.jumlah2 && b.satuan2;
       const jual2 = b.hargaJual2;
+      const diskon = Math.max(0, Math.min(100, Number(b.diskon || 0)));
       return `
       <td class="primary">${e(b.nama)}</td>
       <td>${fmtNum(b.jumlah1 || b.jumlah)} <span class="badge badge-blue">${e(sat1)}</span></td>
       <td>${adaEcer ? `${fmtNum(b.jumlah2)} <span class="badge badge-orange">${e(b.satuan2)}</span>` : '<span class="text-muted">—</span>'}</td>
-      <td>${fmt(b.hargaModal)}<br><small class="text-muted">/ ${e(sat1)}</small></td>
       <td>
-        ${fmt(b.hargaJual1 || b.hargaJual)} <small class="text-muted">/ ${e(sat1)}</small>
+        ${fmt(b.hargaModal)}<br><small class="text-muted">/ ${e(sat1)}</small>
+        ${diskon > 0 ? `<br><span class="badge badge-orange" style="margin-top:3px;">Diskon ${diskon}% · Total ${fmt(bmItemTotal(b))}</span>` : ''}
+      </td>
+      <td>
+        ${(b.hargaJual1 || b.hargaJual) ? `${fmt(b.hargaJual1 || b.hargaJual)} <small class="text-muted">/ ${e(sat1)}</small>` : '<span class="text-muted">—</span>'}
         ${adaEcer && jual2 ? `<br>${fmt(jual2)} <small class="text-muted">/ ${e(b.satuan2)}</small>` : ''}
       </td>`;
     },
     subtotalRowFn: (rows, nama) => {
       const totalBesar = rows.reduce((s2, b) => s2 + Number(b.jumlah1 || b.jumlah || 0), 0);
       const totalEcer  = rows.reduce((s2, b) => s2 + Number(b.jumlah2 || 0), 0);
-      const totalModal = rows.reduce((s2, b) => s2 + Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0), 0);
+      const totalModal = rows.reduce((s2, b) => s2 + bmItemTotal(b), 0);
       return `<td></td>
         <td class="subtotal-label">Subtotal ${e(nama)}</td>
         <td class="subtotal-val">${fmtNum(totalBesar)} item</td>
@@ -1315,8 +1434,9 @@ function openEditPerjalanan(id, key) {
 function deletePerjalanan(id, ruteId, key) {
   const html = `
     <div style="padding:10px 0 20px;text-align:center">
-      <p style="margin-bottom:8px;font-size:15px;color:var(--ink-variant)">Yakin ingin menghapus perjalanan ini?</p>
-      <p style="margin-bottom:20px;font-size:13px;color:var(--muted)">Data transaksi yang sudah tercatat di dalamnya tidak akan terhapus, tapi tidak akan muncul di perjalanan manapun.</p>
+      <p style="margin-bottom:8px;font-size:15px;color:var(--ink-variant)">Yakin ingin menghapus <b>Periode ${ruteId ? 'Perjalanan' : 'Toko'}</b> ini?</p>
+      <p style="margin-bottom:20px;font-size:13px;color:var(--red);font-weight:600;">PENTING: Periode ini dipakai BERSAMA oleh Barang Masuk, Barang Terjual, Rekap Piutang, Uang Masuk, & Uang Keluar!</p>
+      <p style="margin-bottom:20px;font-size:13px;color:var(--muted)">Data transaksi yang sudah Anda isi memang tidak akan hilang (masih ada di "Lihat Semua"), tapi akan terlepas dari kelompok ini di SEMUA menu.</p>
       <div style="display:flex;justify-content:center;gap:12px">
         <button type="button" class="btn btn-ghost" data-aksi="tutup-modal">Batal</button>
         <button type="button" class="btn btn-danger" id="btn-confirm-del-pj">Ya, Hapus</button>
@@ -1340,11 +1460,13 @@ function perjalananLabel(pj) {
 }
 
 const LEGACY_PAGE_FOR_KEY = {
+  barangMasuk: 'barang-masuk',
   barangTerjual: 'barang-terjual', rekapPiutang: 'rekap-piutang', tagihan: 'tagihan',
   uangKeluarLK: 'uang-keluar-lk', uangMasuk: 'uang-masuk',
   uangKeluar: 'uang-keluar-semua',
 };
 const PJ_PAGE_FOR_KEY = {
+  barangMasuk: 'pj-barang-masuk',
   barangTerjual: 'pj-barang-terjual', rekapPiutang: 'pj-rekap-piutang', tagihan: 'pj-tagihan',
   uangKeluarLK: 'pj-uang-keluar', uangMasuk: 'pj-uang-masuk',
   uangKeluar: 'uang-keluar',
@@ -1407,6 +1529,19 @@ function renderCategoryTripList(ruteId, key) {
     .slice()
     .sort((a, b) => b.tanggalMulai.localeCompare(a.tanggalMulai));
 
+  const grandTotalUang = trips.reduce((sum, pj) => {
+    const itemsPj = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === pj.id);
+    return sum + hitungTotalUangKey(key, itemsPj);
+  }, 0);
+
+  const grandTotalData = trips.reduce((sum, pj) => {
+    return sum + store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === pj.id).length;
+  }, 0);
+
+  const warnaUang = (key === 'uangKeluar' || key === 'uangKeluarLK') ? 'color:var(--red);'
+                  : (key === 'uangMasuk' || key === 'barangTerjual' ? 'color:var(--green);' : 'color:var(--ink);');
+  const tandaMin = (key === 'uangKeluar' || key === 'uangKeluarLK') ? '-' : '';
+
   const html = `
   <div class="page-anim">
     <div class="page-header">
@@ -1414,41 +1549,87 @@ function renderCategoryTripList(ruteId, key) {
         <div class="page-title">${cfg.icon} ${cfg.title}</div>
         <div class="page-subtitle">${lingkup} — dikelompokkan per ${G.toLowerCase()}${ruteId ? ' (sekali jalan)' : ''}</div>
       </div>
-      <button class="btn btn-primary" id="btn-add-perjalanan">+ Tambah ${G}</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${ruteId ? `<button class="btn btn-ghost" data-aksi="buka-keuntungan-rute" data-rute="${ruteId}">${ico('trending_up',17)} Keuntungan Rute</button>` : ''}
+        <button class="btn btn-primary" id="btn-add-perjalanan">+ Tambah ${G}</button>
+      </div>
     </div>
+
+    <div class="nx-mini-grid" style="margin-bottom:20px;">
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('calendar_month',17)} Total ${G}</div>
+        <div class="nx-mini-nilai">${trips.length} ${G}</div>
+        <div class="nx-mini-ket">${ruteId ? `Rute ${e(rute ? rute.nama : '')}` : 'Toko Utama'}</div>
+      </div>
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('receipt_long',17)} Total Transaksi / Data</div>
+        <div class="nx-mini-nilai">${fmtNum(grandTotalData)} data</div>
+        <div class="nx-mini-ket">Di seluruh ${G.toLowerCase()}</div>
+      </div>
+      <div class="nx-mini">
+        <div class="nx-mini-label">${ico('payments',17)} Total Nilai Uang</div>
+        <div class="nx-mini-nilai" style="${warnaUang}">${tandaMin}${fmt(grandTotalUang)}</div>
+        <div class="nx-mini-ket">Semua rangkap ${G.toLowerCase()}</div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header">
-        <div class="card-title">Daftar ${G}</div>
+        <div class="card-title">Daftar ${G} (${cfg.title})</div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>No</th><th>${ruteId ? 'Periode Perjalanan' : 'Periode'}</th><th>Jumlah Data ${cfg.title}</th><th>Aksi</th></tr></thead>
+          <thead>
+            <tr>
+              <th style="width:44px;text-align:center;">No</th>
+              <th>${ruteId ? 'Periode Perjalanan' : 'Periode'}</th>
+              <th>Jumlah Data</th>
+              <th style="text-align:right;">Total Uang</th>
+              <th style="text-align:center;">Aksi</th>
+            </tr>
+          </thead>
           <tbody>
             ${trips.length ? trips.map((pj, i) => {
-              const count = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === pj.id).length;
+              const itemsPj = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === pj.id);
+              const count = itemsPj.length;
+              const totalUang = hitungTotalUangKey(key, itemsPj);
               return `
               <tr>
                 <td class="group-no-cell" style="width:44px;text-align:center;color:var(--muted);">${i + 1}</td>
-                <td class="primary" data-aksi="buka-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}">${perjalananLabel(pj)}</td>
-                <td>${count} data</td>
-                <td>
-                  <div class="actions">
+                <td class="primary" data-aksi="buka-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}" style="cursor:pointer;font-weight:600;">
+                  ${perjalananLabel(pj)}
+                </td>
+                <td><span class="badge badge-blue">${count} data</span></td>
+                <td style="text-align:right;font-weight:700;font-size:14px;white-space:nowrap;${warnaUang}">
+                  ${tandaMin}${fmt(totalUang)}
+                </td>
+                <td style="text-align:center;">
+                  <div class="actions" style="justify-content:center;">
                     <button class="btn btn-primary btn-sm" data-aksi="buka-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}">${ico('description',16)} Lihat & Cetak</button>
                     <button class="btn btn-ghost btn-sm" data-aksi="ubah-perjalanan" data-pj="${pj.id}" data-key="${key}">${ico('edit',16)} Edit</button>
                     <button class="btn btn-danger btn-sm" data-aksi="hapus-perjalanan" data-rute="${ruteId || ''}" data-pj="${pj.id}" data-key="${key}">${ico('delete',16)}</button>
                   </div>
                 </td>
               </tr>`;
-            }).join('') : barisKosong(4, `Belum ada ${G.toLowerCase()}`,
-                  `Klik "+ Tambah ${G}" untuk mencatat ${G.toLowerCase()} pertama`)}
+            }).join('') : barisKosong(5, `Belum ada ${G.toLowerCase()}`,
+                  `Klik "+ Tambah ${G}" untuk membuat periode yang akan menampung data ${cfg.title.toLowerCase()} perjalanan ini.`)}
           </tbody>
+          ${trips.length ? `
+          <tfoot>
+            <tr style="background:var(--surface-hover);font-weight:700;">
+              <td colspan="2" style="text-align:right;padding:12px 16px;">Total Keseluruhan:</td>
+              <td style="padding:12px 16px;"><span class="badge badge-dark">${fmtNum(grandTotalData)} data</span></td>
+              <td style="text-align:right;padding:12px 16px;font-size:15px;white-space:nowrap;${warnaUang}">${tandaMin}${fmt(grandTotalUang)}</td>
+              <td></td>
+            </tr>
+          </tfoot>` : ''}
         </table>
       </div>
     </div>
 
     <div style="margin-top:16px; font-size:13px; color:var(--muted);">
       Lihat riwayat lengkap ${cfg.title.toLowerCase()} (semua data, termasuk yang belum dikelompokkan ke ${G.toLowerCase()}):
-      <a href="#" id="pj-legacy-link" style="color:var(--teal);">Lihat Semua</a>
+      <a href="#" id="pj-legacy-link" style="color:var(--teal);font-weight:600;">Lihat Semua</a>
     </div>
   </div>`;
 
@@ -1485,6 +1666,10 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
   if (!pj || !cfg) { renderCategoryTripList(ruteId, key); return; }
 
   const rows = store[key].filter(x => cocokRute(x, ruteId) && x.perjalananId === perjalananId);
+  const totalPj = hitungTotalUangKey(key, rows);
+  const warnaUangPj = (key === 'uangKeluar' || key === 'uangKeluarLK') ? 'color:var(--red);'
+                    : (key === 'uangMasuk' || key === 'barangTerjual' ? 'color:var(--green);' : 'color:var(--brand);');
+  const tandaMinPj = (key === 'uangKeluar' || key === 'uangKeluarLK') ? '-' : '';
 
   content.innerHTML = `
   <div class="page-anim">
@@ -1494,7 +1679,11 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
         <div class="page-title">${cfg.icon} ${cfg.title}</div>
         <div class="page-subtitle">${ruteId ? 'Rute ' + e(rute ? rute.nama : '') : 'Toko Utama'} — ${istilahGrup(ruteId)} ${perjalananLabel(pj)}</div>
       </div>
-      <div class="no-print nx-head-aksi">
+      <div class="no-print nx-head-aksi" style="display:flex;align-items:center;gap:10px;">
+        ${ruteId ? `<button class="btn btn-ghost" data-aksi="buka-keuntungan-rute" data-rute="${ruteId}">${ico('trending_up',17)} Keuntungan Rute</button>` : ''}
+        <div class="nx-chip" style="font-size:13.5px;font-weight:700;padding:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+          Total Nilai: <span style="${warnaUangPj}">${tandaMinPj}${fmt(totalPj)}</span>
+        </div>
         <button class="btn btn-ghost" id="btn-print-pj-${key}">${ico('print',17)} Cetak</button>
         <button class="btn btn-dark" id="btn-add-pj-${key}">${ico('add',17)}${cfg.addLabel.replace(/^\+\s*/, '')}</button>
       </div>
@@ -1523,10 +1712,1689 @@ function renderPerjalananCategoryPage(ruteId, perjalananId, key) {
     if (el) {
       el.innerHTML = `
         <div class="print-title">Toko Panglima Bangunan — ${cfg.title.toUpperCase()}</div>
-        <div class="print-subtitle">${ruteId ? 'Rute ' + e(rute ? rute.nama : '') : 'Toko Utama'} — ${istilahGrup(ruteId)} ${perjalananLabel(pj)}</div>
+        <div class="print-subtitle">${ruteId ? 'Rute ' + e(rute ? rute.nama : '') : 'Toko Utama'} — ${istilahGrup(ruteId)} ${perjalananLabel(pj)} · Total: ${tandaMinPj}${fmt(totalPj)}</div>
         <div class="print-subtitle">Dicetak: ${formatDate(today())}</div>`;
     }
     window.print();
+  });
+}
+
+/* ========================
+   KEUNTUNGAN RUTE (Laba / Rugi Per Rute & Filter Tanggal)
+   ======================== */
+const filterKeuntungan = {
+  startDate: '',
+  endDate: '',
+  perjalananId: ''
+};
+
+function hitungKeuntunganRute(ruteId, startDate = null, endDate = null, perjalananId = null) {
+  const matchFilter = (x) => {
+    if (ruteId && x.ruteId !== ruteId) return false;
+    if (perjalananId && x.perjalananId !== perjalananId) return false;
+    if (startDate && x.tanggal && x.tanggal < startDate) return false;
+    if (endDate && x.tanggal && x.tanggal > endDate) return false;
+    return true;
+  };
+
+  // 1. Barang Terjual (+)
+  const terjualList = (store.barangTerjual || []).filter(matchFilter);
+  const totalBarangTerjual = terjualList.reduce((s, b) => s + (Number(b.jumlah || 0) * Number(b.hargaJual || 0)), 0);
+
+  // 2. Barang Masuk (-)
+  const masukList = (store.barangMasuk || []).filter(matchFilter);
+  const totalBarangMasuk = masukList.reduce((s, b) => s + bmItemTotal(b), 0);
+
+  // 3. Uang Keluar (-) (baik uangKeluarLK maupun uangKeluar rute)
+  const keluarLKList = (store.uangKeluarLK || []).filter(matchFilter);
+  const keluarNormList = (store.uangKeluar || []).filter(x => x.ruteId && matchFilter(x));
+  const keluarList = [...keluarLKList, ...keluarNormList];
+  const totalUangKeluar = keluarList.reduce((s, x) => s + Number(x.jumlah || 0), 0);
+
+  // 4. Uang Masuk (+)
+  const uangMasukList = (store.uangMasuk || []).filter(matchFilter);
+  const totalUangMasuk = uangMasukList.reduce((s, x) => s + Number(x.jumlah || 0), 0);
+
+  // 5. Keuntungan Bersih = Barang Terjual - Barang Masuk - Uang Keluar + Uang Masuk
+  const keuntungan = totalBarangTerjual - totalBarangMasuk - totalUangKeluar + totalUangMasuk;
+
+  return {
+    totalBarangTerjual,
+    totalBarangMasuk,
+    totalUangKeluar,
+    totalUangMasuk,
+    keuntungan,
+    counts: {
+      terjual: terjualList.length,
+      masuk: masukList.length,
+      keluar: keluarList.length,
+      uangMasuk: uangMasukList.length,
+    },
+    lists: {
+      terjual: terjualList,
+      masuk: masukList,
+      keluar: keluarList,
+      uangMasuk: uangMasukList,
+    }
+  };
+}
+
+function renderKeuntunganRute(ruteId) {
+  if (!ruteId && store.ruteList && store.ruteList.length) {
+    ruteId = store.ruteList[0].id;
+  }
+  currentRuteId = ruteId;
+  const content = document.getElementById('content');
+  const rute = store.ruteList.find(x => x.id === ruteId);
+  if (!rute) {
+    content.innerHTML = `<div class="empty-state"><div class="empty-state-title">Rute tidak ditemukan</div></div>`;
+    return;
+  }
+
+  const trips = (store.perjalananList || [])
+    .filter(x => x.ruteId === ruteId)
+    .slice()
+    .sort((a, b) => b.tanggalMulai.localeCompare(a.tanggalMulai));
+
+  const html = `
+  <div class="page-anim">
+    <div class="print-header" id="print-header-keuntungan"></div>
+
+    <div class="page-header nx-head no-print" style="align-items:center;">
+      <div>
+        <div class="page-title">${ico('trending_up')} Keuntungan Rute: ${e(rute.nama)}</div>
+        <div class="page-subtitle">Laba Bersih = <b>Barang Terjual</b> – <b>Barang Masuk</b> – <b>Uang Keluar</b> + <b>Uang Masuk</b></div>
+      </div>
+      <div class="no-print" style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-ghost" id="btn-print-keuntungan">${ico('print',17)} Cetak Laporan</button>
+        <button class="btn btn-primary" data-nav="pj-barang-terjual" data-rute="${rute.id}">${ico('visibility',17)} Lihat Transaksi Rute</button>
+      </div>
+    </div>
+
+    <!-- Filter Rentang Tanggal & Perjalanan -->
+    <div class="card no-print" style="margin-bottom:20px;padding:16px 20px;">
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:12px;display:flex;align-items:center;gap:7px;">
+        ${ico('tune',18)} Filter Rentang Tanggal &amp; Periode
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;">
+        <div class="form-group" style="margin:0;min-width:160px;flex:1;">
+          <label class="form-label" style="font-size:12px;font-weight:600;margin-bottom:6px;">
+            Dari Tanggal
+          </label>
+          <input type="date" class="form-input" id="kt-tgl-mulai" value="${filterKeuntungan.startDate || ''}" />
+        </div>
+        <div class="form-group" style="margin:0;min-width:160px;flex:1;">
+          <label class="form-label" style="font-size:12px;font-weight:600;margin-bottom:6px;">
+            Sampai Tanggal
+          </label>
+          <input type="date" class="form-input" id="kt-tgl-selesai" value="${filterKeuntungan.endDate || ''}" />
+        </div>
+        <div class="form-group" style="margin:0;min-width:220px;flex:1.2;">
+          <label class="form-label" style="font-size:12px;font-weight:600;margin-bottom:6px;">
+            Pilih Perjalanan (Opsional)
+          </label>
+          <select class="form-select" id="kt-filter-pj">
+            <option value="">-- Semua Periode / Bebas --</option>
+            ${trips.map(pj => `<option value="${pj.id}" ${filterKeuntungan.perjalananId === pj.id ? 'selected' : ''}>${perjalananLabel(pj)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:1px;">
+          <button class="btn btn-primary" id="kt-btn-terapkan">${ico('filter_alt',16)} Terapkan</button>
+          <button class="btn btn-ghost" id="kt-btn-reset">${ico('restart_alt',16)} Reset</button>
+        </div>
+      </div>
+      <!-- Preset Cepat -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <span style="font-size:11.5px;color:var(--muted);font-weight:600;">Pintas Cepat:</span>
+        <button type="button" class="btn btn-sm btn-ghost kt-preset" data-preset="all">Semua Tanggal</button>
+        <button type="button" class="btn btn-sm btn-ghost kt-preset" data-preset="this-month">Bulan Ini</button>
+        <button type="button" class="btn btn-sm btn-ghost kt-preset" data-preset="last-month">Bulan Lalu</button>
+        <button type="button" class="btn btn-sm btn-ghost kt-preset" data-preset="this-year">Tahun Ini</button>
+      </div>
+    </div>
+
+    <!-- Kontainer Dinamis Hasil Perhitungan -->
+    <div id="kt-dinamis-container"></div>
+  </div>`;
+
+  content.innerHTML = html;
+
+  function refreshKeuntunganView() {
+    const sDate = filterKeuntungan.startDate;
+    const eDate = filterKeuntungan.endDate;
+    const pjId = filterKeuntungan.perjalananId;
+    const res = hitungKeuntunganRute(ruteId, sDate, eDate, pjId);
+    const isUntung = res.keuntungan >= 0;
+    const wadah = document.getElementById('kt-dinamis-container');
+    if (!wadah) return;
+
+    let infoPeriode = 'Semua Periode Tercatat';
+    if (sDate && eDate) {
+      infoPeriode = `${formatDate(sDate)} s/d ${formatDate(eDate)}`;
+    } else if (sDate) {
+      infoPeriode = `Mulai ${formatDate(sDate)}`;
+    } else if (eDate) {
+      infoPeriode = `Sampai ${formatDate(eDate)}`;
+    }
+    if (pjId) {
+      const pjObj = store.perjalananList.find(p => p.id === pjId);
+      if (pjObj) infoPeriode += ` (Perjalanan ${perjalananLabel(pjObj)})`;
+    }
+
+    wadah.innerHTML = `
+      <!-- Hero KPI Keuntungan Bersih -->
+      <div class="card" style="margin-bottom:20px;padding:24px;border-left:6px solid ${isUntung ? 'var(--green)' : 'var(--red)'};background:linear-gradient(to right, ${isUntung ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)'}, var(--surface));">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span class="badge ${isUntung ? 'badge-green' : 'badge-red'}" style="font-size:12.5px;padding:5px 12px;font-weight:700;">
+                ${isUntung ? '&#10003; UNTUNG (Laba Bersih)' : '&#9888; RUGI (Defisit Operasional)'}
+              </span>
+              <span style="font-size:13px;color:var(--muted);font-weight:600;">Periode: ${infoPeriode}</span>
+            </div>
+            <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">
+              Total Keuntungan Bersih Rute ${e(rute.nama)}
+            </div>
+            <div style="font-size:36px;font-weight:900;color:${isUntung ? 'var(--green)' : 'var(--red)'};letter-spacing:-0.03em;line-height:1.1;">
+              ${isUntung ? '' : '-'}${fmt(Math.abs(res.keuntungan))}
+            </div>
+          </div>
+          <div style="text-align:right;max-width:420px;font-size:12.5px;color:var(--ink-variant);line-height:1.6;background:var(--surface);padding:14px 18px;border-radius:var(--r-md);border:1px solid var(--border);">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--ink);">Kalkulasi Rumus Klien:</div>
+            <div>+ Barang Terjual: <b>${fmt(res.totalBarangTerjual)}</b></div>
+            <div>- Barang Masuk: <b style="color:var(--red)">-${fmt(res.totalBarangMasuk)}</b></div>
+            <div>- Uang Keluar: <b style="color:var(--red)">-${fmt(res.totalUangKeluar)}</b></div>
+            <div>+ Uang Masuk: <b style="color:var(--green)">+${fmt(res.totalUangMasuk)}</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Mini Cards -->
+      <div class="nx-mini-grid" style="margin-bottom:24px;">
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('local_shipping',17)} 1. Barang Terjual (+)</div>
+          <div class="nx-mini-nilai" style="color:var(--green);">${fmt(res.totalBarangTerjual)}</div>
+          <div class="nx-mini-ket">${res.counts.terjual} jenis barang terjual</div>
+        </div>
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('inventory_2',17)} 2. Barang Masuk (-)</div>
+          <div class="nx-mini-nilai" style="color:var(--red);">${fmt(res.totalBarangMasuk)}</div>
+          <div class="nx-mini-ket">${res.counts.masuk} jenis barang masuk</div>
+        </div>
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('payments',17)} 3. Uang Keluar (-)</div>
+          <div class="nx-mini-nilai" style="color:var(--red);">${fmt(res.totalUangKeluar)}</div>
+          <div class="nx-mini-ket">${res.counts.keluar} pengeluaran jalan</div>
+        </div>
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('savings',17)} 4. Uang Masuk (+)</div>
+          <div class="nx-mini-nilai" style="color:var(--green);">${fmt(res.totalUangMasuk)}</div>
+          <div class="nx-mini-ket">${res.counts.uangMasuk} penerimaan kas</div>
+        </div>
+      </div>
+
+      <!-- Ringkasan Keuntungan Per Perjalanan -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header" style="justify-content:space-between;align-items:center;">
+          <div>
+            <div class="card-title">${ico('calendar_month')} Ringkasan Keuntungan Per Perjalanan</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Rincian laba rugi tiap sekali jalan di Rute ${e(rute.nama)}</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:44px;text-align:center">No</th>
+                <th>Perjalanan / Periode</th>
+                <th style="text-align:right">Barang Terjual (+)</th>
+                <th style="text-align:right">Barang Masuk (-)</th>
+                <th style="text-align:right">Uang Keluar (-)</th>
+                <th style="text-align:right">Uang Masuk (+)</th>
+                <th style="text-align:right">Keuntungan Bersih</th>
+                <th style="text-align:center">Status</th>
+                <th class="no-print" style="text-align:center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${trips.length ? trips.map((pj, idx) => {
+                const tripRes = hitungKeuntunganRute(ruteId, null, null, pj.id);
+                const tripUntung = tripRes.keuntungan >= 0;
+                return `
+                <tr>
+                  <td style="text-align:center;color:var(--muted);">${idx + 1}</td>
+                  <td class="primary" style="font-weight:600;">${perjalananLabel(pj)}</td>
+                  <td style="text-align:right;color:var(--green);font-weight:600;">${fmt(tripRes.totalBarangTerjual)}</td>
+                  <td style="text-align:right;color:var(--red);">${fmt(tripRes.totalBarangMasuk)}</td>
+                  <td style="text-align:right;color:var(--red);">${fmt(tripRes.totalUangKeluar)}</td>
+                  <td style="text-align:right;color:var(--green);">${fmt(tripRes.totalUangMasuk)}</td>
+                  <td style="text-align:right;font-weight:800;font-size:14px;color:${tripUntung ? 'var(--green)' : 'var(--red)'};">
+                    ${tripUntung ? '' : '-'}${fmt(Math.abs(tripRes.keuntungan))}
+                  </td>
+                  <td style="text-align:center">
+                    <span class="badge ${tripUntung ? 'badge-green' : 'badge-red'}">
+                      ${tripUntung ? 'Untung' : 'Rugi'}
+                    </span>
+                  </td>
+                  <td class="no-print" style="text-align:center">
+                    <button class="btn btn-ghost btn-sm kt-btn-filter-trip" data-mulai="${pj.tanggalMulai}" data-selesai="${pj.tanggalSelesai}" data-pjid="${pj.id}">
+                      ${ico('filter_alt',14)} Filter Periode Ini
+                    </button>
+                  </td>
+                </tr>`;
+              }).join('') : barisKosong(9, 'Belum ada perjalanan', 'Tambahkan perjalanan terlebih dahulu di menu rute ini')}
+            </tbody>
+            ${trips.length ? `
+            <tfoot>
+              <tr style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+                <td colspan="2" style="text-align:right;padding:12px 14px;">Total Semua Perjalanan:</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--green);">${fmt(trips.reduce((s, pj) => s + hitungKeuntunganRute(ruteId, null, null, pj.id).totalBarangTerjual, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--red);">${fmt(trips.reduce((s, pj) => s + hitungKeuntunganRute(ruteId, null, null, pj.id).totalBarangMasuk, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--red);">${fmt(trips.reduce((s, pj) => s + hitungKeuntunganRute(ruteId, null, null, pj.id).totalUangKeluar, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--green);">${fmt(trips.reduce((s, pj) => s + hitungKeuntunganRute(ruteId, null, null, pj.id).totalUangMasuk, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;font-size:15px;color:${hitungKeuntunganRute(ruteId).keuntungan >= 0 ? 'var(--green)' : 'var(--red)'};">
+                  ${hitungKeuntunganRute(ruteId).keuntungan >= 0 ? '' : '-'}${fmt(Math.abs(hitungKeuntunganRute(ruteId).keuntungan))}
+                </td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>` : ''}
+          </table>
+        </div>
+      </div>
+
+      <!-- Detail Transaksi Transparan (Tabs) -->
+      <div class="card no-print">
+        <div class="card-header">
+          <div class="card-title">${ico('receipt_long')} Rincian Transaksi Pada Periode Ini</div>
+        </div>
+        <div style="padding:14px 20px 0;display:flex;gap:10px;border-bottom:1px solid var(--border);overflow-x:auto;">
+          <button class="btn btn-sm kt-tab-btn active" data-tab="terjual">Barang Terjual (${res.counts.terjual})</button>
+          <button class="btn btn-sm kt-tab-btn btn-ghost" data-tab="masuk">Barang Masuk (${res.counts.masuk})</button>
+          <button class="btn btn-sm kt-tab-btn btn-ghost" data-tab="keluar">Uang Keluar (${res.counts.keluar})</button>
+          <button class="btn btn-sm kt-tab-btn btn-ghost" data-tab="uangmasuk">Uang Masuk (${res.counts.uangMasuk})</button>
+        </div>
+        <div style="padding:16px 20px;" id="kt-tab-content">
+          ${renderTabContent('terjual', res)}
+        </div>
+      </div>
+    `;
+
+    // Event listener for trip filter buttons
+    wadah.querySelectorAll('.kt-btn-filter-trip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mulai = btn.dataset.mulai;
+        const selesai = btn.dataset.selesai;
+        const pjid = btn.dataset.pjid;
+        document.getElementById('kt-tgl-mulai').value = mulai;
+        document.getElementById('kt-tgl-selesai').value = selesai;
+        document.getElementById('kt-filter-pj').value = pjid;
+        filterKeuntungan.startDate = mulai;
+        filterKeuntungan.endDate = selesai;
+        filterKeuntungan.perjalananId = pjid;
+        refreshKeuntunganView();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    // Tab buttons
+    wadah.querySelectorAll('.kt-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        wadah.querySelectorAll('.kt-tab-btn').forEach(b => {
+          b.classList.remove('active');
+          b.classList.add('btn-ghost');
+        });
+        btn.classList.add('active');
+        btn.classList.remove('btn-ghost');
+        document.getElementById('kt-tab-content').innerHTML = renderTabContent(btn.dataset.tab, res);
+      });
+    });
+  }
+
+  function renderTabContent(tab, res) {
+    if (tab === 'terjual') {
+      const items = res.lists.terjual;
+      if (!items.length) return `<div class="empty-state"><div class="empty-state-sub">Tidak ada barang terjual di periode ini</div></div>`;
+      return `<div class="table-wrap"><table>
+        <thead><tr><th>No</th><th>Tanggal</th><th>Toko / Pelanggan</th><th>No PM</th><th>Nama Barang</th><th>Qty</th><th>Harga</th><th>Total</th></tr></thead>
+        <tbody>${items.map((x, i) => `<tr>
+          <td>${i + 1}</td>
+          <td>${formatDate(x.tanggal)}</td>
+          <td class="primary">${e(x.pelanggan || '—')}</td>
+          <td>${e(x.noFaktur || '—')}</td>
+          <td>${e(x.nama)}</td>
+          <td>${fmtNum(x.jumlah)} ${e(x.satuan || '')}</td>
+          <td>${fmt(x.hargaJual)}</td>
+          <td class="amount-positive" style="font-weight:700;">${fmt(x.jumlah * x.hargaJual)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    }
+    if (tab === 'masuk') {
+      const items = res.lists.masuk;
+      if (!items.length) return `<div class="empty-state"><div class="empty-state-sub">Tidak ada barang masuk di periode ini</div></div>`;
+      return `<div class="table-wrap"><table>
+        <thead><tr><th>No</th><th>Tanggal</th><th>Supplier</th><th>Nama Barang</th><th>Isi Besar</th><th>Harga Modal</th><th>Diskon</th><th>Harga Jual</th><th>Total Modal</th></tr></thead>
+        <tbody>${items.map((x, i) => `<tr>
+          <td>${i + 1}</td>
+          <td>${formatDate(x.tanggal)}</td>
+          <td class="primary">${e(x.supplier || '—')}</td>
+          <td>${e(x.nama)}</td>
+          <td>${fmtNum(x.jumlah1 || x.jumlah)} ${e(x.satuan1 || x.satuan || '')}</td>
+          <td>${fmt(x.hargaModal)}</td>
+          <td>${Number(x.diskon || 0) > 0 ? `<span class="badge badge-orange">${Number(x.diskon)}%</span>` : '<span class="text-muted">—</span>'}</td>
+          <td>${fmt(x.hargaJual1 || x.hargaJual)}</td>
+          <td class="amount-negative" style="font-weight:700;">${fmt(bmItemTotal(x))}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    }
+    if (tab === 'keluar') {
+      const items = res.lists.keluar;
+      if (!items.length) return `<div class="empty-state"><div class="empty-state-sub">Tidak ada uang keluar di periode ini</div></div>`;
+      return `<div class="table-wrap"><table>
+        <thead><tr><th>No</th><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th></tr></thead>
+        <tbody>${items.map((x, i) => `<tr>
+          <td>${i + 1}</td>
+          <td>${formatDate(x.tanggal)}</td>
+          <td class="primary">${e(x.keterangan || '—')}</td>
+          <td class="amount-negative" style="font-weight:700;">-${fmt(x.jumlah)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    }
+    if (tab === 'uangmasuk') {
+      const items = res.lists.uangMasuk;
+      if (!items.length) return `<div class="empty-state"><div class="empty-state-sub">Tidak ada uang masuk di periode ini</div></div>`;
+      return `<div class="table-wrap"><table>
+        <thead><tr><th>No</th><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th></tr></thead>
+        <tbody>${items.map((x, i) => `<tr>
+          <td>${i + 1}</td>
+          <td>${formatDate(x.tanggal)}</td>
+          <td class="primary">${e(x.keterangan || '—')}</td>
+          <td class="amount-positive" style="font-weight:700;">+${fmt(x.jumlah)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    }
+    return '';
+  }
+
+  // Terapkan filter
+  document.getElementById('kt-btn-terapkan').addEventListener('click', () => {
+    filterKeuntungan.startDate = document.getElementById('kt-tgl-mulai').value;
+    filterKeuntungan.endDate = document.getElementById('kt-tgl-selesai').value;
+    filterKeuntungan.perjalananId = document.getElementById('kt-filter-pj').value;
+    refreshKeuntunganView();
+  });
+
+  // Reset filter
+  document.getElementById('kt-btn-reset').addEventListener('click', () => {
+    document.getElementById('kt-tgl-mulai').value = '';
+    document.getElementById('kt-tgl-selesai').value = '';
+    document.getElementById('kt-filter-pj').value = '';
+    filterKeuntungan.startDate = '';
+    filterKeuntungan.endDate = '';
+    filterKeuntungan.perjalananId = '';
+    refreshKeuntunganView();
+  });
+
+  // Perjalanan dropdown auto change
+  document.getElementById('kt-filter-pj').addEventListener('change', (ev) => {
+    const val = ev.target.value;
+    if (val) {
+      const pj = store.perjalananList.find(p => p.id === val);
+      if (pj) {
+        document.getElementById('kt-tgl-mulai').value = pj.tanggalMulai;
+        document.getElementById('kt-tgl-selesai').value = pj.tanggalSelesai;
+        filterKeuntungan.startDate = pj.tanggalMulai;
+        filterKeuntungan.endDate = pj.tanggalSelesai;
+      }
+    }
+    filterKeuntungan.perjalananId = val;
+    refreshKeuntunganView();
+  });
+
+  // Preset buttons
+  document.querySelectorAll('.kt-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pr = btn.dataset.preset;
+      const t = new Date();
+      if (pr === 'all') {
+        filterKeuntungan.startDate = '';
+        filterKeuntungan.endDate = '';
+        filterKeuntungan.perjalananId = '';
+      } else if (pr === 'this-month') {
+        const y = t.getFullYear(), m = t.getMonth();
+        const d1 = new Date(y, m, 1).toISOString().slice(0, 10);
+        const d2 = new Date(y, m + 1, 0).toISOString().slice(0, 10);
+        filterKeuntungan.startDate = d1;
+        filterKeuntungan.endDate = d2;
+        filterKeuntungan.perjalananId = '';
+      } else if (pr === 'last-month') {
+        const y = t.getFullYear(), m = t.getMonth() - 1;
+        const d1 = new Date(y, m, 1).toISOString().slice(0, 10);
+        const d2 = new Date(y, m + 1, 0).toISOString().slice(0, 10);
+        filterKeuntungan.startDate = d1;
+        filterKeuntungan.endDate = d2;
+        filterKeuntungan.perjalananId = '';
+      } else if (pr === 'this-year') {
+        const y = t.getFullYear();
+        filterKeuntungan.startDate = `${y}-01-01`;
+        filterKeuntungan.endDate = `${y}-12-31`;
+        filterKeuntungan.perjalananId = '';
+      }
+      document.getElementById('kt-tgl-mulai').value = filterKeuntungan.startDate;
+      document.getElementById('kt-tgl-selesai').value = filterKeuntungan.endDate;
+      document.getElementById('kt-filter-pj').value = filterKeuntungan.perjalananId;
+      refreshKeuntunganView();
+    });
+  });
+
+  // Print button
+  document.getElementById('btn-print-keuntungan').addEventListener('click', () => {
+    let pLabel = 'Semua Periode';
+    if (filterKeuntungan.startDate && filterKeuntungan.endDate) {
+      pLabel = `${formatDate(filterKeuntungan.startDate)} — ${formatDate(filterKeuntungan.endDate)}`;
+    }
+    document.getElementById('print-header-keuntungan').innerHTML = `
+      <div class="print-title">TOKO PANGLIMA BANGUNAN — LAPORAN KEUNTUNGAN RUTE ${e(rute.nama.toUpperCase())}</div>
+      <div class="print-subtitle">Rumus: Barang Terjual - Barang Masuk - Uang Keluar + Uang Masuk</div>
+      <div class="print-subtitle">Periode: ${pLabel} &nbsp;|&nbsp; Dicetak: ${formatDate(today())}</div>
+    `;
+    window.print();
+  });
+
+  // Initial render
+  refreshKeuntunganView();
+}
+
+/* ========================
+   REKAP SEMUA RUTE (GABUNGAN BULANAN & TAHUNAN)
+   ======================== */
+const filterRekapSemua = {
+  mode: 'bulan', // 'bulan' | 'tahun'
+  tahun: new Date().getFullYear(),
+  bulan: new Date().getMonth(),
+  ruteId: '',
+};
+
+function renderRekapSemuaRute() {
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  // Dapatkan daftar tahun dari data
+  const tahunSet = new Set([new Date().getFullYear()]);
+  const extractYears = (arr) => {
+    (arr || []).forEach(x => {
+      if (x && x.tanggal) {
+        const y = parseInt(String(x.tanggal).slice(0, 4), 10);
+        if (!isNaN(y) && y > 2000 && y < 2100) tahunSet.add(y);
+      }
+    });
+  };
+  extractYears(store.barangTerjual);
+  extractYears(store.barangMasuk);
+  extractYears(store.uangKeluarLK);
+  extractYears(store.uangMasuk);
+  extractYears(store.rekapPiutang);
+  (store.perjalananList || []).forEach(p => {
+    if (p && p.tanggalMulai) {
+      const y = parseInt(String(p.tanggalMulai).slice(0, 4), 10);
+      if (!isNaN(y)) tahunSet.add(y);
+    }
+  });
+
+  const availableYears = Array.from(tahunSet).sort((a, b) => b - a);
+  if (!filterRekapSemua.tahun && availableYears.length) {
+    filterRekapSemua.tahun = availableYears[0];
+  }
+
+  const html = `
+  <div class="page-anim">
+    <div class="print-header" id="print-header-rekap-semua"></div>
+
+    <div class="page-header nx-head no-print" style="align-items:center;">
+      <div>
+        <div class="page-title">${ico('query_stats')} Rekap Semua Rute (Bulanan &amp; Tahunan)</div>
+        <div class="page-subtitle">Rekapitulasi gabungan seluruh rute operasional Toko Panglima &bull; Rumus: <b>Barang Terjual</b> – <b>Barang Masuk</b> – <b>Uang Keluar</b> + <b>Uang Masuk</b></div>
+      </div>
+      <div class="no-print" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="btn-copy-rekap-semua">${ico('content_copy',17)} Salin untuk WA / Excel</button>
+        <button class="btn btn-ghost" id="btn-print-rekap-semua">${ico('print',17)} Cetak Rekap</button>
+      </div>
+    </div>
+
+    <!-- Filter Mode & Periode -->
+    <div class="card no-print" style="margin-bottom:20px;padding:16px 20px;">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:7px;">
+          ${ico('tune',18)} Pilihan Mode Tampilan
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-sm ${filterRekapSemua.mode === 'bulan' ? 'btn-primary' : 'btn-ghost'}" id="btn-mode-bulan">
+            ${ico('calendar_month',15)} Rekap Bulanan
+          </button>
+          <button type="button" class="btn btn-sm ${filterRekapSemua.mode === 'tahun' ? 'btn-primary' : 'btn-ghost'}" id="btn-mode-tahun">
+            ${ico('calendar_today',15)} Rekap Tahunan
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;">
+        <div class="form-group" style="margin:0;min-width:140px;flex:1;">
+          <label class="form-label" style="font-size:12px;font-weight:600;margin-bottom:6px;">Tahun</label>
+          <select class="form-select" id="rekap-tahun">
+            ${availableYears.map(y => `<option value="${y}" ${filterRekapSemua.tahun === y ? 'selected' : ''}>Tahun ${y}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin:0;min-width:160px;flex:1.2;display:${filterRekapSemua.mode === 'bulan' ? 'block' : 'none'};" id="box-filter-bulan">
+          <label class="form-label" style="font-size:12px;font-weight:600;margin-bottom:6px;">Bulan</label>
+          <select class="form-select" id="rekap-bulan">
+            ${MONTHS.map((mName, idx) => `<option value="${idx}" ${filterRekapSemua.bulan === idx ? 'selected' : ''}>${mName}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin:0;min-width:180px;flex:1.4;">
+          <label class="form-label" style="font-size:12px;font-weight:600;margin-bottom:6px;">Filter Rute (Opsional)</label>
+          <select class="form-select" id="rekap-filter-rute">
+            <option value="">-- Semua Rute Digabung --</option>
+            ${(store.ruteList || []).map(r => `<option value="${r.id}" ${filterRekapSemua.ruteId === r.id ? 'selected' : ''}>${e(r.nama)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:1px;">
+          <button class="btn btn-primary" id="rekap-btn-terapkan">${ico('filter_alt',16)} Terapkan</button>
+        </div>
+      </div>
+
+      <!-- Preset Cepat -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+        <span style="font-size:11.5px;color:var(--muted);font-weight:600;">Pintas Cepat:</span>
+        <button type="button" class="btn btn-sm btn-ghost rekap-preset" data-preset="this-month">Bulan Ini</button>
+        <button type="button" class="btn btn-sm btn-ghost rekap-preset" data-preset="last-month">Bulan Lalu</button>
+        <button type="button" class="btn btn-sm btn-ghost rekap-preset" data-preset="this-year">Tahun Ini</button>
+      </div>
+    </div>
+
+    <!-- Kontainer Dinamis Hasil Rekap -->
+    <div id="rekap-semua-container"></div>
+  </div>`;
+
+  content.innerHTML = html;
+
+  function refreshRekapView() {
+    const container = document.getElementById('rekap-semua-container');
+    if (!container) return;
+
+    const mode = filterRekapSemua.mode;
+    const y = filterRekapSemua.tahun;
+    const m = filterRekapSemua.bulan;
+    const ruteFilter = filterRekapSemua.ruteId;
+
+    let startDate, endDate, labelPeriode;
+    if (mode === 'bulan') {
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      startDate = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      endDate = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      labelPeriode = `${MONTHS[m]} ${y}`;
+    } else {
+      startDate = `${y}-01-01`;
+      endDate = `${y}-12-31`;
+      labelPeriode = `Tahun ${y} (1 Januari — 31 Desember ${y})`;
+    }
+
+    const ruteList = (store.ruteList || []).filter(r => !ruteFilter || r.id === ruteFilter);
+
+    // Hitung per rute
+    let grandTerjual = 0;
+    let grandMasuk = 0;
+    let grandPiutang = 0;
+    let grandKeluar = 0;
+    let grandUangMasuk = 0;
+    let grandKeuntungan = 0;
+
+    const routeData = ruteList.map(r => {
+      const res = hitungKeuntunganRute(r.id, startDate, endDate);
+      const piutangList = (store.rekapPiutang || []).filter(x => x.ruteId === r.id && (!x.tanggal || (x.tanggal >= startDate && x.tanggal <= endDate)));
+      const piutangNominal = piutangList.reduce((s, x) => s + Number(x.jumlah || 0), 0);
+
+      grandTerjual += res.totalBarangTerjual;
+      grandMasuk += res.totalBarangMasuk;
+      grandPiutang += piutangNominal;
+      grandKeluar += res.totalUangKeluar;
+      grandUangMasuk += res.totalUangMasuk;
+      grandKeuntungan += res.keuntungan;
+
+      return {
+        id: r.id,
+        nama: r.nama,
+        terjual: res.totalBarangTerjual,
+        masuk: res.totalBarangMasuk,
+        piutang: piutangNominal,
+        keluar: res.totalUangKeluar,
+        uangMasuk: res.totalUangMasuk,
+        keuntungan: res.keuntungan,
+        isUntung: res.keuntungan >= 0,
+        tripsCount: (store.perjalananList || []).filter(p => p.ruteId === r.id && (!p.tanggalMulai || (p.tanggalMulai >= startDate && p.tanggalMulai <= endDate))).length,
+      };
+    });
+
+    const isGrandUntung = grandKeuntungan >= 0;
+
+    // Rincian 12 Bulan (Progression)
+    const monthlyProgression = [];
+    for (let mo = 0; mo < 12; mo++) {
+      const mStart = `${y}-${String(mo + 1).padStart(2, '0')}-01`;
+      const mEnd = `${y}-${String(mo + 1).padStart(2, '0')}-${String(new Date(y, mo + 1, 0).getDate()).padStart(2, '0')}`;
+      const mRes = hitungKeuntunganRute(ruteFilter || null, mStart, mEnd);
+      const mPiutang = (store.rekapPiutang || []).filter(x => (!ruteFilter || x.ruteId === ruteFilter) && (!x.tanggal || (x.tanggal >= mStart && x.tanggal <= mEnd)))
+        .reduce((s, x) => s + Number(x.jumlah || 0), 0);
+      monthlyProgression.push({
+        bulanIdx: mo,
+        bulanNama: MONTHS[mo],
+        terjual: mRes.totalBarangTerjual,
+        masuk: mRes.totalBarangMasuk,
+        piutang: mPiutang,
+        keluar: mRes.totalUangKeluar,
+        uangMasuk: mRes.totalUangMasuk,
+        keuntungan: mRes.keuntungan,
+        isUntung: mRes.keuntungan >= 0,
+      });
+    }
+
+    // Bangun HTML Tampilan
+    container.innerHTML = `
+      <!-- Hero KPI Banner -->
+      <div class="card" style="margin-bottom:20px;padding:24px;border-left:6px solid ${isGrandUntung ? 'var(--green)' : 'var(--red)'};background:linear-gradient(to right, ${isGrandUntung ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)'}, var(--surface));">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <span class="badge ${isGrandUntung ? 'badge-green' : 'badge-red'}" style="font-size:12.5px;padding:5px 12px;font-weight:700;">
+                ${isGrandUntung ? '&#10003; UNTUNG (Laba Bersih)' : '&#9888; DEFISIT (Rugi Operasional)'}
+              </span>
+              <span style="font-size:13px;color:var(--muted);font-weight:600;">Periode: ${labelPeriode} ${ruteFilter ? `&bull; Rute ${e(routeData[0]?.nama || '')}` : '&bull; Semua Rute Digabung'}</span>
+            </div>
+            <div style="font-size:13px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">
+              Total Keuntungan Bersih Gabungan (${labelPeriode})
+            </div>
+            <div style="font-size:36px;font-weight:900;color:${isGrandUntung ? 'var(--green)' : 'var(--red)'};letter-spacing:-0.03em;line-height:1.1;">
+              ${isGrandUntung ? '' : '-'}${fmt(Math.abs(grandKeuntungan))}
+            </div>
+          </div>
+          <div style="text-align:right;max-width:440px;font-size:12.5px;color:var(--ink-variant);line-height:1.6;background:var(--surface);padding:14px 18px;border-radius:var(--r-md);border:1px solid var(--border);">
+            <div style="font-weight:700;margin-bottom:4px;color:var(--ink);">Kalkulasi Keuntungan Bersih Semua Rute:</div>
+            <div>+ Barang Terjual: <b style="color:var(--green)">${fmt(grandTerjual)}</b></div>
+            <div>- Barang Masuk (Modal): <b style="color:var(--red)">-${fmt(grandMasuk)}</b></div>
+            <div>- Uang Keluar (Operasional): <b style="color:var(--red)">-${fmt(grandKeluar)}</b></div>
+            <div>+ Uang Masuk: <b style="color:var(--green)">+${fmt(grandUangMasuk)}</b></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Mini Cards -->
+      <div class="nx-mini-grid" style="margin-bottom:24px;">
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('local_shipping',17)} 1. Total Barang Terjual (+)</div>
+          <div class="nx-mini-nilai" style="color:var(--green);">${fmt(grandTerjual)}</div>
+          <div class="nx-mini-ket">Penjualan gabungan seluruh rute</div>
+        </div>
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('inventory_2',17)} 2. Total Barang Masuk (-)</div>
+          <div class="nx-mini-nilai" style="color:var(--red);">${fmt(grandMasuk)}</div>
+          <div class="nx-mini-ket">Modal pembelian barang</div>
+        </div>
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('payments',17)} 3. Total Uang Keluar (-)</div>
+          <div class="nx-mini-nilai" style="color:var(--red);">${fmt(grandKeluar)}</div>
+          <div class="nx-mini-ket">Biaya jalan &amp; operasional rute</div>
+        </div>
+        <div class="nx-mini">
+          <div class="nx-mini-label">${ico('savings',17)} 4. Total Uang Masuk (+)</div>
+          <div class="nx-mini-nilai" style="color:var(--green);">${fmt(grandUangMasuk)}</div>
+          <div class="nx-mini-ket">Penerimaan kas &amp; pelunasan piutang</div>
+        </div>
+      </div>
+
+      <!-- TABEL UTAMA: REKAP SEMUA RUTE (Persis format screenshot klien) -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header" style="justify-content:space-between;align-items:center;">
+          <div>
+            <div class="card-title">${ico('table_chart')} Tabel Rekap Semua Rute (${labelPeriode})</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Rincian laba bersih per rute dan total akumulasi keseluruhan</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:44px;text-align:center">No</th>
+                <th>Periode / Rute</th>
+                <th style="text-align:right">Barang Terjual (+)</th>
+                <th style="text-align:right">Barang Masuk (-)</th>
+                <th style="text-align:right">Rekap Piutang</th>
+                <th style="text-align:right">Uang Keluar (-)</th>
+                <th style="text-align:right">Uang Masuk (+)</th>
+                <th style="text-align:right">Keuntungan Bersih</th>
+                <th style="text-align:center">Status</th>
+                <th class="no-print" style="text-align:center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${routeData.length ? routeData.map((rd, idx) => `
+                <tr>
+                  <td style="text-align:center;color:var(--muted);">${idx + 1}</td>
+                  <td class="primary" style="font-weight:700;">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      ${ico('local_shipping',16)}
+                      <span>Rute ${e(rd.nama)}</span>
+                    </div>
+                  </td>
+                  <td style="text-align:right;color:var(--green);font-weight:600;">${fmt(rd.terjual)}</td>
+                  <td style="text-align:right;color:var(--red);">${fmt(rd.masuk)}</td>
+                  <td style="text-align:right;color:var(--ink-variant);">${fmt(rd.piutang)}</td>
+                  <td style="text-align:right;color:var(--red);">${fmt(rd.keluar)}</td>
+                  <td style="text-align:right;color:var(--green);">${fmt(rd.uangMasuk)}</td>
+                  <td style="text-align:right;font-weight:800;font-size:14px;color:${rd.isUntung ? 'var(--green)' : 'var(--red)'};">
+                    ${rd.isUntung ? '' : '-'}${fmt(Math.abs(rd.keuntungan))}
+                  </td>
+                  <td style="text-align:center">
+                    <span class="badge ${rd.isUntung ? 'badge-green' : 'badge-red'}">
+                      ${rd.isUntung ? 'Untung' : 'Rugi'}
+                    </span>
+                  </td>
+                  <td class="no-print" style="text-align:center">
+                    <button class="btn btn-ghost btn-sm" data-aksi="buka-keuntungan-rute" data-rute="${rd.id}">
+                      ${ico('visibility',14)} Lihat Detail
+                    </button>
+                  </td>
+                </tr>
+              `).join('') : barisKosong(10, 'Belum ada rute', 'Tambahkan rute pada menu Manajemen Rute')}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+                <td colspan="2" style="text-align:right;padding:12px 14px;font-size:13px;letter-spacing:0.02em;">
+                  TOTAL SEMUA RUTE GABUNGAN:
+                </td>
+                <td style="text-align:right;padding:12px 14px;color:var(--green);font-size:14px;">${fmt(grandTerjual)}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--red);font-size:14px;">${fmt(grandMasuk)}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--ink-variant);font-size:14px;">${fmt(grandPiutang)}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--red);font-size:14px;">${fmt(grandKeluar)}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--green);font-size:14px;">${fmt(grandUangMasuk)}</td>
+                <td style="text-align:right;padding:12px 14px;font-size:16px;color:${isGrandUntung ? 'var(--green)' : 'var(--red)'};">
+                  ${isGrandUntung ? '' : '-'}${fmt(Math.abs(grandKeuntungan))}
+                </td>
+                <td style="text-align:center;padding:12px 14px;">
+                  <span class="badge ${isGrandUntung ? 'badge-green' : 'badge-red'}" style="font-weight:800;">
+                    ${isGrandUntung ? 'Untung' : 'Rugi'}
+                  </span>
+                </td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- TABEL PERKEMBANGAN 12 BULAN DALAM TAHUN TERPILIH -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header" style="justify-content:space-between;align-items:center;">
+          <div>
+            <div class="card-title">${ico('calendar_month')} Perkembangan Rekap Semua Rute Per Bulan (Tahun ${y})</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Rekapitulasi kumulatif per bulan dari Januari sampai Desember ${y}</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:44px;text-align:center">No</th>
+                <th>Bulan</th>
+                <th style="text-align:right">Barang Terjual (+)</th>
+                <th style="text-align:right">Barang Masuk (-)</th>
+                <th style="text-align:right">Rekap Piutang</th>
+                <th style="text-align:right">Uang Keluar (-)</th>
+                <th style="text-align:right">Uang Masuk (+)</th>
+                <th style="text-align:right">Keuntungan Bersih</th>
+                <th style="text-align:center">Status</th>
+                <th class="no-print" style="text-align:center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${monthlyProgression.map((mp, idx) => {
+                const isSelectedMonth = mode === 'bulan' && mp.bulanIdx === m;
+                return `
+                <tr style="${isSelectedMonth ? 'background:rgba(15,118,110,0.06);font-weight:600;' : ''}">
+                  <td style="text-align:center;color:var(--muted);">${idx + 1}</td>
+                  <td class="primary" style="font-weight:700;">
+                    ${mp.bulanNama} ${y}
+                    ${isSelectedMonth ? `<span class="badge badge-primary" style="margin-left:6px;font-size:10px;padding:2px 6px;">Dipilih</span>` : ''}
+                  </td>
+                  <td style="text-align:right;color:var(--green);font-weight:600;">${fmt(mp.terjual)}</td>
+                  <td style="text-align:right;color:var(--red);">${fmt(mp.masuk)}</td>
+                  <td style="text-align:right;color:var(--ink-variant);">${fmt(mp.piutang)}</td>
+                  <td style="text-align:right;color:var(--red);">${fmt(mp.keluar)}</td>
+                  <td style="text-align:right;color:var(--green);">${fmt(mp.uangMasuk)}</td>
+                  <td style="text-align:right;font-weight:800;font-size:14px;color:${mp.isUntung ? 'var(--green)' : 'var(--red)'};">
+                    ${mp.isUntung ? '' : '-'}${fmt(Math.abs(mp.keuntungan))}
+                  </td>
+                  <td style="text-align:center">
+                    <span class="badge ${mp.isUntung ? 'badge-green' : 'badge-red'}">
+                      ${mp.isUntung ? 'Untung' : 'Rugi'}
+                    </span>
+                  </td>
+                  <td class="no-print" style="text-align:center">
+                    <button class="btn btn-ghost btn-sm rekap-pilih-bulan-btn" data-bulan="${mp.bulanIdx}">
+                      ${ico('filter_alt',14)} Tampilkan Bulan Ini
+                    </button>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+                <td colspan="2" style="text-align:right;padding:12px 14px;">TOTAL SETAHUN (${y}):</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--green);">${fmt(monthlyProgression.reduce((s, x) => s + x.terjual, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--red);">${fmt(monthlyProgression.reduce((s, x) => s + x.masuk, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--ink-variant);">${fmt(monthlyProgression.reduce((s, x) => s + x.piutang, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--red);">${fmt(monthlyProgression.reduce((s, x) => s + x.keluar, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;color:var(--green);">${fmt(monthlyProgression.reduce((s, x) => s + x.uangMasuk, 0))}</td>
+                <td style="text-align:right;padding:12px 14px;font-size:15px;color:${monthlyProgression.reduce((s, x) => s + x.keuntungan, 0) >= 0 ? 'var(--green)' : 'var(--red)'};">
+                  ${monthlyProgression.reduce((s, x) => s + x.keuntungan, 0) >= 0 ? '' : '-'}${fmt(Math.abs(monthlyProgression.reduce((s, x) => s + x.keuntungan, 0)))}
+                </td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    `;
+
+    // Pasang tombol pilih bulan dari tabel bulanan
+    container.querySelectorAll('.rekap-pilih-bulan-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        filterRekapSemua.mode = 'bulan';
+        filterRekapSemua.bulan = parseInt(b.dataset.bulan, 10);
+        document.getElementById('rekap-bulan').value = filterRekapSemua.bulan;
+        document.getElementById('btn-mode-bulan').classList.add('btn-primary');
+        document.getElementById('btn-mode-bulan').classList.remove('btn-ghost');
+        document.getElementById('btn-mode-tahun').classList.remove('btn-primary');
+        document.getElementById('btn-mode-tahun').classList.add('btn-ghost');
+        document.getElementById('box-filter-bulan').style.display = 'block';
+        refreshRekapView();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    // Fitur Salin ke WhatsApp / Excel
+    const btnCopy = document.getElementById('btn-copy-rekap-semua');
+    if (btnCopy) {
+      btnCopy.onclick = () => {
+        let text = `*REKAP KEUNTUNGAN SEMUA RUTE — TOKO PANGLIMA BANGUNAN*\n`;
+        text += `Periode: ${labelPeriode}\n`;
+        text += `Dicetak/Dibuat: ${formatDate(today())}\n`;
+        text += `========================================\n\n`;
+        text += `RINCIAN PER RUTE:\n`;
+        routeData.forEach((rd, i) => {
+          text += `${i + 1}. Rute ${rd.nama.toUpperCase()}\n`;
+          text += `   - Barang Terjual (+) : ${fmt(rd.terjual)}\n`;
+          text += `   - Barang Masuk (-)   : ${fmt(rd.masuk)}\n`;
+          text += `   - Uang Keluar (-)    : ${fmt(rd.keluar)}\n`;
+          text += `   - Uang Masuk (+)     : ${fmt(rd.uangMasuk)}\n`;
+          text += `   - Keuntungan Bersih  : ${rd.isUntung ? '' : '-'}${fmt(Math.abs(rd.keuntungan))} (${rd.isUntung ? 'Untung' : 'Rugi'})\n\n`;
+        });
+        text += `========================================\n`;
+        text += `TOTAL SEMUA RUTE GABUNGAN:\n`;
+        text += `- Total Barang Terjual (+) : ${fmt(grandTerjual)}\n`;
+        text += `- Total Modal Masuk (-)    : ${fmt(grandMasuk)}\n`;
+        text += `- Total Uang Keluar (-)    : ${fmt(grandKeluar)}\n`;
+        text += `- Total Uang Masuk (+)     : ${fmt(grandUangMasuk)}\n`;
+        text += `👉 *KEUNTUNGAN BERSIH GABUNGAN* : *${isGrandUntung ? '' : '-'}${fmt(Math.abs(grandKeuntungan))}* (${isGrandUntung ? 'UNTUNG' : 'RUGI'})\n`;
+        text += `========================================\n`;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Data rekap berhasil disalin ke clipboard! Siap di-paste ke WhatsApp atau Excel.', 'success');
+          }).catch(() => {
+            showToast('Gagal menyalin otomatis, silakan salin manual.', 'error');
+          });
+        } else {
+          showToast('Clipboard API tidak didukung di browser ini.', 'error');
+        }
+      };
+    }
+
+    // Fitur Cetak Rekap
+    const btnPrint = document.getElementById('btn-print-rekap-semua');
+    if (btnPrint) {
+      btnPrint.onclick = () => {
+        document.getElementById('print-header-rekap-semua').innerHTML = `
+          <div class="print-title">TOKO PANGLIMA BANGUNAN — REKAP KEUNTUNGAN SEMUA RUTE</div>
+          <div class="print-subtitle">Rumus: Barang Terjual - Barang Masuk - Uang Keluar + Uang Masuk</div>
+          <div class="print-subtitle">Periode: ${labelPeriode} &nbsp;|&nbsp; Dicetak: ${formatDate(today())}</div>
+        `;
+        window.print();
+      };
+    }
+  }
+
+  // Event handler filter
+  document.getElementById('btn-mode-bulan').addEventListener('click', () => {
+    filterRekapSemua.mode = 'bulan';
+    document.getElementById('btn-mode-bulan').classList.add('btn-primary');
+    document.getElementById('btn-mode-bulan').classList.remove('btn-ghost');
+    document.getElementById('btn-mode-tahun').classList.remove('btn-primary');
+    document.getElementById('btn-mode-tahun').classList.add('btn-ghost');
+    document.getElementById('box-filter-bulan').style.display = 'block';
+    refreshRekapView();
+  });
+
+  document.getElementById('btn-mode-tahun').addEventListener('click', () => {
+    filterRekapSemua.mode = 'tahun';
+    document.getElementById('btn-mode-tahun').classList.add('btn-primary');
+    document.getElementById('btn-mode-tahun').classList.remove('btn-ghost');
+    document.getElementById('btn-mode-bulan').classList.remove('btn-primary');
+    document.getElementById('btn-mode-bulan').classList.add('btn-ghost');
+    document.getElementById('box-filter-bulan').style.display = 'none';
+    refreshRekapView();
+  });
+
+  document.getElementById('rekap-btn-terapkan').addEventListener('click', () => {
+    filterRekapSemua.tahun = parseInt(document.getElementById('rekap-tahun').value, 10);
+    filterRekapSemua.bulan = parseInt(document.getElementById('rekap-bulan').value, 10);
+    filterRekapSemua.ruteId = document.getElementById('rekap-filter-rute').value;
+    refreshRekapView();
+  });
+
+  // Pintas Cepat
+  document.querySelectorAll('.rekap-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.preset;
+      const t = new Date();
+      if (p === 'this-month') {
+        filterRekapSemua.mode = 'bulan';
+        filterRekapSemua.tahun = t.getFullYear();
+        filterRekapSemua.bulan = t.getMonth();
+      } else if (p === 'last-month') {
+        filterRekapSemua.mode = 'bulan';
+        const lm = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+        filterRekapSemua.tahun = lm.getFullYear();
+        filterRekapSemua.bulan = lm.getMonth();
+      } else if (p === 'this-year') {
+        filterRekapSemua.mode = 'tahun';
+        filterRekapSemua.tahun = t.getFullYear();
+      }
+      document.getElementById('rekap-tahun').value = filterRekapSemua.tahun;
+      document.getElementById('rekap-bulan').value = filterRekapSemua.bulan;
+      if (filterRekapSemua.mode === 'bulan') {
+        document.getElementById('btn-mode-bulan').classList.add('btn-primary');
+        document.getElementById('btn-mode-bulan').classList.remove('btn-ghost');
+        document.getElementById('btn-mode-tahun').classList.remove('btn-primary');
+        document.getElementById('btn-mode-tahun').classList.add('btn-ghost');
+        document.getElementById('box-filter-bulan').style.display = 'block';
+      } else {
+        document.getElementById('btn-mode-tahun').classList.add('btn-primary');
+        document.getElementById('btn-mode-tahun').classList.remove('btn-ghost');
+        document.getElementById('btn-mode-bulan').classList.remove('btn-primary');
+        document.getElementById('btn-mode-bulan').classList.add('btn-ghost');
+        document.getElementById('box-filter-bulan').style.display = 'none';
+      }
+      refreshRekapView();
+    });
+  });
+
+  refreshRekapView();
+}
+
+/* ========================
+   HALAMAN REKAP PER BULAN (Rute Aktif Tiap Bulan)
+   ======================== */
+
+/* Modal detail transaksi satu perjalanan — dipanggil dari tombol Detail di Rekap Per Bulan */
+function bukaModalDetailPerjalanan(ruteId, pjIds, namaRute, labelPj) {
+  // pjIds bisa array atau string tunggal — gabungkan hasil semua perjalanan
+  const ids = Array.isArray(pjIds) ? pjIds : (pjIds ? [pjIds] : []);
+  // Debug: log ke konsol supaya mudah troubleshoot jika modal kosong
+  console.log('[Detail] ruteId:', ruteId, '| pjIds:', ids, '| BM total:', (store.barangMasuk||[]).filter(x => x.ruteId === ruteId).length,
+              '| BT total:', (store.barangTerjual||[]).filter(x => x.ruteId === ruteId).length);
+
+  // Hitung total gabungan semua perjalanan
+  let res;
+  if (ids.length === 0) {
+    res = hitungKeuntunganRute(ruteId, null, null, null);
+  } else if (ids.length === 1) {
+    res = hitungKeuntunganRute(ruteId, null, null, ids[0]);
+    // Fallback: kalau tidak ada data dengan perjalananId itu, tampilkan semua data rute
+    if (res.counts.masuk + res.counts.terjual + res.counts.keluar + res.counts.uangMasuk === 0) {
+      console.log('[Detail] Tidak ada data untuk pjId', ids[0], '— fallback ke semua data rute');
+      res = hitungKeuntunganRute(ruteId, null, null, null);
+    }
+  } else {
+    // Gabungkan hasil semua perjalanan
+    const semua = ids.map(id => hitungKeuntunganRute(ruteId, null, null, id));
+    res = {
+      totalBarangMasuk:   semua.reduce((s, r) => s + r.totalBarangMasuk,   0),
+      totalBarangTerjual: semua.reduce((s, r) => s + r.totalBarangTerjual, 0),
+      totalUangKeluar:    semua.reduce((s, r) => s + r.totalUangKeluar,    0),
+      totalUangMasuk:     semua.reduce((s, r) => s + r.totalUangMasuk,     0),
+      keuntungan:         semua.reduce((s, r) => s + r.keuntungan,         0),
+      counts: {
+        masuk:     semua.reduce((s, r) => s + r.counts.masuk,     0),
+        terjual:   semua.reduce((s, r) => s + r.counts.terjual,   0),
+        keluar:    semua.reduce((s, r) => s + r.counts.keluar,     0),
+        uangMasuk: semua.reduce((s, r) => s + r.counts.uangMasuk, 0),
+      },
+      lists: {
+        masuk:     semua.flatMap(r => r.lists.masuk),
+        terjual:   semua.flatMap(r => r.lists.terjual),
+        keluar:    semua.flatMap(r => r.lists.keluar),
+        uangMasuk: semua.flatMap(r => r.lists.uangMasuk),
+      }
+    };
+    // Fallback: kalau gabungan semua juga kosong, tampilkan semua data rute itu
+    if (res.counts.masuk + res.counts.terjual + res.counts.keluar + res.counts.uangMasuk === 0) {
+      console.log('[Detail] Tidak ada data untuk semua pjIds', ids, '— fallback ke semua data rute');
+      res = hitungKeuntunganRute(ruteId, null, null, null);
+    }
+  }
+
+  const isUntung = res.keuntungan >= 0;
+
+  // Helper buat tabel daftar item
+  const tblBM = res.lists.masuk.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px;">Tidak ada barang masuk</td></tr>`
+    : res.lists.masuk.map(b => {
+        const total = bmItemTotal(b);
+        const diskon = Number(b.diskon || 0);
+        return `<tr>
+          <td style="padding:7px 10px;">${e(b.nama || '-')}</td>
+          <td style="text-align:right;padding:7px 10px;">${fmtNum(b.jumlah || 0)}</td>
+          <td style="text-align:center;padding:7px 10px;">${e(b.satuan || '')}</td>
+          <td style="text-align:right;padding:7px 10px;">${fmt(b.hargaModal || 0)}${diskon > 0 ? ` <span style="color:var(--orange);font-size:11px">−${diskon}%</span>` : ''}</td>
+          <td style="text-align:right;padding:7px 10px;font-weight:600;color:var(--red);">${fmt(total)}</td>
+        </tr>`;
+      }).join('');
+
+  const tblBT = res.lists.terjual.length === 0
+    ? `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:14px;">Tidak ada barang terjual</td></tr>`
+    : res.lists.terjual.map(b => {
+        const total = Number(b.jumlah || 0) * Number(b.hargaJual || 0);
+        return `<tr>
+          <td style="padding:7px 10px;">${e(b.nama || '-')}</td>
+          <td style="text-align:right;padding:7px 10px;">${fmtNum(b.jumlah || 0)}</td>
+          <td style="text-align:center;padding:7px 10px;">${e(b.satuan || '')}</td>
+          <td style="text-align:right;padding:7px 10px;">${fmt(b.hargaJual || 0)}</td>
+          <td style="text-align:right;padding:7px 10px;font-weight:600;color:var(--green);">${fmt(total)}</td>
+        </tr>`;
+      }).join('');
+
+  const tblKeluar = res.lists.keluar.length === 0
+    ? `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:14px;">Tidak ada uang keluar</td></tr>`
+    : res.lists.keluar.map(x => `<tr>
+        <td style="padding:7px 10px;">${e(x.keterangan || x.nama || '-')}</td>
+        <td style="text-align:center;padding:7px 10px;">${x.tanggal ? formatDate(x.tanggal) : '-'}</td>
+        <td style="text-align:right;padding:7px 10px;font-weight:600;color:var(--red);">${fmt(x.jumlah || 0)}</td>
+      </tr>`).join('');
+
+  const tblUangMsk = res.lists.uangMasuk.length === 0
+    ? `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:14px;">Tidak ada uang masuk</td></tr>`
+    : res.lists.uangMasuk.map(x => `<tr>
+        <td style="padding:7px 10px;">${e(x.keterangan || x.nama || '-')}</td>
+        <td style="text-align:center;padding:7px 10px;">${x.tanggal ? formatDate(x.tanggal) : '-'}</td>
+        <td style="text-align:right;padding:7px 10px;font-weight:600;color:var(--green);">${fmt(x.jumlah || 0)}</td>
+      </tr>`).join('');
+
+  const thStyle = 'padding:8px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--border);';
+  const secStyle = 'margin-bottom:20px;border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;';
+  const secHead = (ico_name, label, jumlah, warna) =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-hover);border-bottom:1px solid var(--border);">
+       <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;">${ico(ico_name,16)} ${label}</div>
+       <div style="font-size:14px;font-weight:800;color:${warna};">${fmt(jumlah)}</div>
+     </div>`;
+
+  const html = `
+    <div style="padding:4px 0;">
+      <!-- Ringkasan Keuntungan -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;">
+        <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-md);padding:12px 14px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Brg Masuk (−)</div>
+          <div style="font-size:16px;font-weight:800;color:var(--red);">${fmt(res.totalBarangMasuk)}</div>
+        </div>
+        <div style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);border-radius:var(--r-md);padding:12px 14px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Brg Terjual (+)</div>
+          <div style="font-size:16px;font-weight:800;color:var(--green);">${fmt(res.totalBarangTerjual)}</div>
+        </div>
+        <div style="background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:var(--r-md);padding:12px 14px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Uang Keluar (−)</div>
+          <div style="font-size:16px;font-weight:800;color:var(--red);">${fmt(res.totalUangKeluar)}</div>
+        </div>
+        <div style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);border-radius:var(--r-md);padding:12px 14px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Uang Masuk (+)</div>
+          <div style="font-size:16px;font-weight:800;color:var(--green);">${fmt(res.totalUangMasuk)}</div>
+        </div>
+        <div style="background:${isUntung ? 'rgba(16,185,129,.12)' : 'rgba(239,68,68,.12)'};border:2px solid ${isUntung ? 'rgba(16,185,129,.4)' : 'rgba(239,68,68,.4)'};border-radius:var(--r-md);padding:12px 14px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px;">Untung Bersih</div>
+          <div style="font-size:18px;font-weight:900;color:${isUntung ? 'var(--green)' : 'var(--red)'};">${isUntung ? '' : '-'}${fmt(Math.abs(res.keuntungan))}</div>
+        </div>
+      </div>
+
+      <!-- Barang Masuk -->
+      <div style="${secStyle}">
+        ${secHead('inventory_2', 'Barang Masuk', res.totalBarangMasuk, 'var(--red)')}
+        <div style="overflow-x:auto;"><table style="width:100%;font-size:12.5px;">
+          <thead><tr>
+            <th style="${thStyle}">Nama Barang</th>
+            <th style="${thStyle}text-align:right;">Jumlah</th>
+            <th style="${thStyle}text-align:center;">Satuan</th>
+            <th style="${thStyle}text-align:right;">Harga Modal</th>
+            <th style="${thStyle}text-align:right;">Total Modal</th>
+          </tr></thead>
+          <tbody>${tblBM}</tbody>
+        </table></div>
+      </div>
+
+      <!-- Barang Terjual -->
+      <div style="${secStyle}">
+        ${secHead('local_shipping', 'Barang Terjual', res.totalBarangTerjual, 'var(--green)')}
+        <div style="overflow-x:auto;"><table style="width:100%;font-size:12.5px;">
+          <thead><tr>
+            <th style="${thStyle}">Nama Barang</th>
+            <th style="${thStyle}text-align:right;">Jumlah</th>
+            <th style="${thStyle}text-align:center;">Satuan</th>
+            <th style="${thStyle}text-align:right;">Harga Jual</th>
+            <th style="${thStyle}text-align:right;">Total</th>
+          </tr></thead>
+          <tbody>${tblBT}</tbody>
+        </table></div>
+      </div>
+
+      <!-- Uang Keluar -->
+      <div style="${secStyle}">
+        ${secHead('payments', 'Uang Keluar', res.totalUangKeluar, 'var(--red)')}
+        <div style="overflow-x:auto;"><table style="width:100%;font-size:12.5px;">
+          <thead><tr>
+            <th style="${thStyle}">Keterangan</th>
+            <th style="${thStyle}text-align:center;">Tanggal</th>
+            <th style="${thStyle}text-align:right;">Jumlah</th>
+          </tr></thead>
+          <tbody>${tblKeluar}</tbody>
+        </table></div>
+      </div>
+
+      <!-- Uang Masuk -->
+      <div style="${secStyle}margin-bottom:4px;">
+        ${secHead('account_balance_wallet', 'Uang Masuk', res.totalUangMasuk, 'var(--green)')}
+        <div style="overflow-x:auto;"><table style="width:100%;font-size:12.5px;">
+          <thead><tr>
+            <th style="${thStyle}">Keterangan</th>
+            <th style="${thStyle}text-align:center;">Tanggal</th>
+            <th style="${thStyle}text-align:right;">Jumlah</th>
+          </tr></thead>
+          <tbody>${tblUangMsk}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+
+  setLebarModal('860px');
+  openModal(`${ico('analytics',18)} Detail Perjalanan: ${namaRute} — ${labelPj}`, html, null);
+}
+
+function renderRekapPerBulan() {
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  const now = new Date();
+  let selTahun = now.getFullYear();
+  let selBulan = now.getMonth(); // 0-indexed
+
+  // Dapatkan semua tahun dari perjalanan dan transaksi
+  const tahunSet = new Set([now.getFullYear()]);
+  const extractTahun = (arr, field = 'tanggal') => {
+    (arr || []).forEach(p => {
+      if (p && p[field]) {
+        const y = parseInt(String(p[field]).slice(0, 4), 10);
+        if (!isNaN(y) && y > 2000 && y < 2100) tahunSet.add(y);
+      }
+    });
+  };
+  extractTahun(store.perjalananList, 'tanggalMulai');
+  extractTahun(store.barangMasuk);
+  extractTahun(store.barangTerjual);
+  extractTahun(store.uangKeluarLK);
+  extractTahun(store.uangMasuk);
+  const availableTahun = Array.from(tahunSet).sort((a, b) => b - a);
+
+  function buildHTML() {
+    const lastDay = new Date(selTahun, selBulan + 1, 0).getDate();
+    const startDate = `${selTahun}-${String(selBulan + 1).padStart(2, '0')}-01`;
+    const endDate   = `${selTahun}-${String(selBulan + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const labelBulan = `${MONTHS[selBulan]} ${selTahun}`;
+
+    // ── Satu baris = satu RUTE (gabungan semua perjalanan rute itu di bulan terpilih) ──────────
+    // Sesuai permintaan klien: "kalau bisa digabungkan saja semua rute-rute itu"
+    // Angka total dihitung dari semua perjalanan rute yang berangkat di bulan ini,
+    // sehingga 1 rute = 1 baris meski ada 2–3 kali perjalanan di bulan yang sama.
+    const rows = [];
+    const selisihHari = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+    // Periode penampung jangka panjang (> 62 hari) bukan "sekali jalan"
+    const isPenampung = (pj) => !!(pj.tanggalMulai && pj.tanggalSelesai && selisihHari(pj.tanggalMulai, pj.tanggalSelesai) > 62);
+    const jumlahBaris = (res) => res.counts.masuk + res.counts.terjual + res.counts.keluar + res.counts.uangMasuk;
+
+    (store.ruteList || []).forEach(rute => {
+      const ruteId = rute.id;
+      const tripsNyata = (store.perjalananList || []).filter(pj => pj.ruteId === ruteId && !isPenampung(pj));
+
+      // Ambil semua perjalanan rute ini yang SUDAH berangkat di bulan terpilih
+      // pj.tanggalMulai <= today() = sudah berangkat (bukan rencana masa depan)
+      const hariIni = today();
+      const tripsBulanIni = tripsNyata
+        .filter(pj =>
+          pj.tanggalMulai &&
+          pj.tanggalMulai >= startDate &&
+          pj.tanggalMulai <= endDate &&
+          pj.tanggalMulai <= hariIni   // ← hanya yang SUDAH berangkat
+        )
+        .sort((x, y) => x.tanggalMulai.localeCompare(y.tanggalMulai));
+
+      if (tripsBulanIni.length === 0) return; // rute ini tidak berangkat bulan ini
+
+      // Hitung total gabungan semua perjalanan rute ini di bulan terpilih
+      let totalMasuk = 0, totalTerjual = 0, totalKeluar = 0, totalUangMasuk = 0, totalData = 0;
+      const pjIds = []; // simpan semua pjId untuk modal Detail
+      tripsBulanIni.forEach(pj => {
+        const res = hitungKeuntunganRute(ruteId, null, null, pj.id);
+        totalMasuk     += res.totalBarangMasuk;
+        totalTerjual   += res.totalBarangTerjual;
+        totalKeluar    += res.totalUangKeluar;
+        totalUangMasuk += res.totalUangMasuk;
+        totalData      += jumlahBaris(res);
+        pjIds.push(pj.id);
+      });
+
+      // Label: jika 1 perjalanan tampilkan rentangnya, jika >1 tampilkan jumlahnya
+      const labelGabung = tripsBulanIni.length === 1
+        ? perjalananLabel(tripsBulanIni[0])
+        : `${tripsBulanIni.length} perjalanan`;
+
+      // berlanjut: salah satu perjalanan melewati akhir bulan
+      const adaBerlanjut = tripsBulanIni.some(pj => pj.tanggalSelesai && pj.tanggalSelesai > endDate);
+
+      rows.push({
+        ruteId,
+        namaRute:    rute.nama,
+        label:       labelGabung,
+        jumlahPj:    tripsBulanIni.length,
+        pjIds:       pjIds.join(','),       // untuk modal Detail
+        jumlahData:  totalData,
+        berlanjut:   adaBerlanjut,
+        terjual:     totalTerjual,
+        masuk:       totalMasuk,
+        keluar:      totalKeluar,
+        uangMasuk:   totalUangMasuk,
+        keuntungan:  totalTerjual - totalMasuk - totalKeluar + totalUangMasuk
+      });
+    });
+
+    const jumlahRuteAktif = rows.length;
+    const grandTerjual    = rows.reduce((s, r) => s + r.terjual, 0);
+    const grandMasuk      = rows.reduce((s, r) => s + r.masuk, 0);
+    const grandKeluar     = rows.reduce((s, r) => s + r.keluar, 0);
+    const grandUangMasuk  = rows.reduce((s, r) => s + r.uangMasuk, 0);
+    const grandKeuntungan = rows.reduce((s, r) => s + r.keuntungan, 0);
+
+    const rowsHTML = rows.length === 0
+      ? `<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);">Tidak ada perjalanan yang berangkat pada ${labelBulan}</td></tr>`
+      : rows.map((r, i) => `
+          <tr>
+            <td style="text-align:center;color:var(--muted);padding:10px 8px;">${i + 1}</td>
+            <td class="primary" style="font-weight:700;padding:10px 8px;white-space:nowrap;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                ${ico('local_shipping', 16)}
+                <span>${e(r.namaRute)}</span>
+              </div>
+            </td>
+            <td style="font-size:12px;padding:10px 8px;">
+              <div style="font-weight:600;color:var(--ink);white-space:nowrap;">${r.label}</div>
+              <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;">
+                <span class="badge badge-blue">${r.jumlahPj} perjalanan</span>
+                <span class="badge">${r.jumlahData} data</span>
+                ${r.berlanjut ? '<span class="badge badge-orange">ada yg berlanjut ke bulan berikutnya</span>' : ''}
+              </div>
+            </td>
+            <td style="text-align:right;color:var(--red);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.masuk)}</td>
+            <td style="text-align:right;color:var(--green);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.terjual)}</td>
+            <td style="text-align:right;color:var(--red);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.keluar)}</td>
+            <td style="text-align:right;color:var(--green);font-weight:600;padding:10px 8px;white-space:nowrap;">${fmt(r.uangMasuk)}</td>
+            <td style="text-align:right;font-weight:800;padding:10px 8px;white-space:nowrap;color:${r.keuntungan >= 0 ? 'var(--green)' : 'var(--red)'}">${r.keuntungan >= 0 ? '' : '-'}${fmt(Math.abs(r.keuntungan))}</td>
+            <td class="no-print" style="text-align:center;padding:10px 8px;white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm" data-aksi="rbp-detail-perjalanan" data-rute="${r.ruteId}" data-pj-ids="${e(r.pjIds)}" data-label="${e(r.label)}" data-nama-rute="${e(r.namaRute)}">${ico('visibility', 14)} Detail</button>
+            </td>
+          </tr>`).join('');
+
+    return `
+    <div class="page-anim">
+      <div class="print-header" id="print-header-rbp"></div>
+      <div class="page-header nx-head no-print" style="align-items:center;">
+        <div>
+          <div class="page-title">${ico('calendar_month')} Rekap Per Bulan</div>
+          <div class="page-subtitle">Setiap rute yang berangkat di bulan terpilih, ditampilkan satu baris dengan total gabungan semua perjalanannya</div>
+        </div>
+        <div class="no-print" style="display:flex;align-items:center;gap:10px;">
+          <button class="btn btn-ghost" id="rbp-btn-print">${ico('print', 17)} Cetak Rekap</button>
+        </div>
+      </div>
+
+      <!-- Filter Bulan & Tahun -->
+      <div class="card no-print" style="margin-bottom:20px;padding:16px 20px;">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;">
+          <div class="form-group" style="margin:0;min-width:140px;">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Tahun</label>
+            <select class="form-select" id="rbp-sel-tahun">
+              ${availableTahun.map(y => `<option value="${y}" ${selTahun === y ? 'selected' : ''}>Tahun ${y}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;min-width:160px;">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Bulan</label>
+            <select class="form-select" id="rbp-sel-bulan">
+              ${MONTHS.map((mName, idx) => `<option value="${idx}" ${selBulan === idx ? 'selected' : ''}>${mName}</option>`).join('')}
+            </select>
+          </div>
+          <div style="margin-bottom:1px;">
+            <button class="btn btn-primary" id="rbp-btn-terapkan">${ico('filter_alt', 16)} Terapkan</button>
+          </div>
+          <div style="margin-bottom:1px;display:flex;gap:8px;">
+            <button type="button" class="btn btn-sm btn-ghost" id="rbp-preset-bulan-ini">Bulan Ini</button>
+            <button type="button" class="btn btn-sm btn-ghost" id="rbp-preset-bulan-lalu">Bulan Lalu</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hasil Rekap -->
+      <div class="card" style="margin-bottom:20px;overflow:hidden;">
+        <div style="padding:14px 18px;background:var(--brand-light,#f0faf8);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:14px;font-weight:700;color:var(--brand);">
+            ${ico('calendar_month', 17)} Rekap Per Rute — ${labelBulan}
+          </div>
+          <div style="font-size:12px;color:var(--muted);">${jumlahRuteAktif} rute aktif</div>
+        </div>
+        <div class="table-wrap">
+          <table style="font-size:13px;">
+            <thead>
+              <tr>
+                <th style="text-align:center;width:36px;padding:10px 8px;">No</th>
+                <th style="padding:10px 8px;">Rute</th>
+                <th style="padding:10px 8px;">Perjalanan</th>
+                <th style="text-align:right;padding:10px 8px;white-space:nowrap;">Brg Masuk (−)</th>
+                <th style="text-align:right;padding:10px 8px;white-space:nowrap;">Brg Terjual (+)</th>
+                <th style="text-align:right;padding:10px 8px;white-space:nowrap;">Uang Keluar (−)</th>
+                <th style="text-align:right;padding:10px 8px;white-space:nowrap;">Uang Masuk (+)</th>
+                <th style="text-align:right;padding:10px 8px;white-space:nowrap;">Untung Bersih</th>
+                <th class="no-print" style="text-align:center;padding:10px 8px;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+            ${rows.length ? `
+            <tfoot>
+              <tr style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+                <td colspan="3" style="padding:11px 8px;text-align:right;">TOTAL ${labelBulan.toUpperCase()}:</td>
+                <td style="padding:11px 8px;text-align:right;color:var(--red);white-space:nowrap;">${fmt(grandMasuk)}</td>
+                <td style="padding:11px 8px;text-align:right;color:var(--green);white-space:nowrap;">${fmt(grandTerjual)}</td>
+                <td style="padding:11px 8px;text-align:right;color:var(--red);white-space:nowrap;">${fmt(grandKeluar)}</td>
+                <td style="padding:11px 8px;text-align:right;color:var(--green);white-space:nowrap;">${fmt(grandUangMasuk)}</td>
+                <td style="padding:11px 8px;text-align:right;font-size:14px;white-space:nowrap;color:${grandKeuntungan >= 0 ? 'var(--green)' : 'var(--red)'};">${grandKeuntungan >= 0 ? '' : '-'}${fmt(Math.abs(grandKeuntungan))}</td>
+                <td class="no-print" style="padding:11px 8px;"></td>
+              </tr>
+            </tfoot>` : ''}
+          </table>
+        </div>
+        <div style="padding:10px 18px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted);line-height:1.6;">
+          Angka tiap baris mencakup <b>seluruh transaksi milik perjalanan tersebut</b> (sama dengan angka di Daftar Perjalanan dan Keuntungan Rute).
+          Perjalanan dihitung pada bulan keberangkatannya, sehingga perjalanan yang melewati pergantian bulan tidak terhitung dua kali.
+          Untung Bersih = Brg Terjual − Brg Masuk − Uang Keluar + Uang Masuk.
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function render() {
+    content.innerHTML = buildHTML();
+    bindEvents();
+  }
+
+  function bindEvents() {
+    document.getElementById('rbp-btn-terapkan')?.addEventListener('click', () => {
+      selTahun = Number(document.getElementById('rbp-sel-tahun')?.value || selTahun);
+      selBulan = Number(document.getElementById('rbp-sel-bulan')?.value ?? selBulan);
+      render();
+    });
+    document.getElementById('rbp-preset-bulan-ini')?.addEventListener('click', () => {
+      const n = new Date();
+      selTahun = n.getFullYear();
+      selBulan = n.getMonth();
+      render();
+    });
+    document.getElementById('rbp-preset-bulan-lalu')?.addEventListener('click', () => {
+      const n = new Date();
+      let m = n.getMonth() - 1;
+      let y = n.getFullYear();
+      if (m < 0) { m = 11; y--; }
+      selTahun = y;
+      selBulan = m;
+      render();
+    });
+    document.getElementById('rbp-btn-print')?.addEventListener('click', () => {
+      const ph = document.getElementById('print-header-rbp');
+      if (ph) {
+        ph.innerHTML = `
+          <div class="print-title">Toko Panglima Bangunan — Rekap Rute Per Bulan</div>
+          <div class="print-subtitle">Periode: ${MONTHS[selBulan]} ${selTahun} &bull; Dicetak: ${formatDate(today())}</div>`;
+      }
+      window.print();
+    });
+  }
+
+  render();
+}
+
+/* ========================
+   HALAMAN BACKUP & RESTORE DATA
+   ======================== */
+function renderBackupPage() {
+  const content = document.getElementById('content');
+  if (!content) return;
+
+  // Cek apakah ada draf yang tersimpan di localStorage
+  const activeDrafts = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('tp_draft_')) {
+        const val = JSON.parse(localStorage.getItem(key));
+        activeDrafts.push({ key, val });
+      }
+    }
+  } catch (err) {}
+
+  const html = `
+  <div class="page-anim">
+    <div class="page-header nx-head" style="align-items:center;">
+      <div>
+        <div class="page-title">${ico('cloud_sync')} Backup &amp; Restore Data Toko</div>
+        <div class="page-subtitle">Cadangkan seluruh data Toko Panglima ke komputer Anda atau pulihkan data dari file cadangan kapan saja</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:20px;margin-bottom:24px;">
+      <!-- Kartu 1: Unduh Backup -->
+      <div class="card" style="padding:24px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="background:rgba(15,118,110,0.1);color:var(--brand);padding:10px;border-radius:var(--r-md);display:inline-flex;">
+              ${ico('cloud_download',28)}
+            </div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink);">Cadangkan Data (Backup)</div>
+              <div style="font-size:12px;color:var(--muted);">Simpan ke file JSON di komputer / flashdisk</div>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--ink-variant);line-height:1.6;margin-bottom:16px;">
+            Unduh seluruh rekaman transaksi barang masuk, barang terjual, utang, piutang, kas, rute, dan stok barang ke dalam sebuah file cadangan (.json). File ini dapat Anda simpan sebagai arsip atau dipindahkan ke komputer lain.
+          </p>
+          <div style="background:var(--surface-hover);padding:12px 14px;border-radius:var(--r-sm);font-size:12px;color:var(--ink);line-height:1.7;margin-bottom:20px;">
+            <div>&bull; <b>${(store.barangMasuk || []).length}</b> transaksi Barang Masuk</div>
+            <div>&bull; <b>${(store.barangTerjual || []).length}</b> transaksi Barang Terjual</div>
+            <div>&bull; <b>${(store.ruteList || []).length}</b> rute perjalanan luar kota</div>
+            <div>&bull; <b>${(store.utang || []).length + (store.piutang || []).length}</b> catatan Utang &amp; Piutang</div>
+            <div>&bull; <b>${(store.uangKeluar || []).length + (store.uangKeluarLK || []).length + (store.uangMasuk || []).length}</b> catatan Kas</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="btn-unduh-backup" style="width:100%;justify-content:center;padding:12px;">
+          ${ico('download',18)} Unduh Cadangan Lengkap (.json)
+        </button>
+      </div>
+
+      <!-- Kartu 2: Pulihkan Data (Restore) -->
+      <div class="card" style="padding:24px;display:flex;flex-direction:column;justify-content:space-between;border-top:3px solid var(--brand);">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <div style="background:rgba(239,68,68,0.1);color:var(--red);padding:10px;border-radius:var(--r-md);display:inline-flex;">
+              ${ico('cloud_upload',28)}
+            </div>
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--ink);">Pulihkan Data (Restore)</div>
+              <div style="font-size:12px;color:var(--muted);">Kembalikan data dari file cadangan sebelumnya</div>
+            </div>
+          </div>
+          <p style="font-size:13px;color:var(--ink-variant);line-height:1.6;margin-bottom:16px;">
+            Pilih file cadangan JSON yang pernah Anda unduh untuk mengembalikan data transaksi dan stok. Data saat ini akan diperbarui sesuai isi file cadangan.
+          </p>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label" style="font-size:12px;font-weight:600;">Pilih File Cadangan (.json)</label>
+            <input type="file" id="input-restore-file" accept=".json,application/json" class="form-input" style="padding:8px;" />
+          </div>
+          <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);padding:10px 12px;border-radius:var(--r-sm);font-size:11.5px;color:var(--red);line-height:1.5;margin-bottom:20px;">
+            ${ico('warning',14)} <b>Perhatian:</b> Memulihkan data akan menggantikan data yang sedang aktif. Disarankan untuk mengunduh cadangan terbaru terlebih dahulu.
+          </div>
+        </div>
+        <button class="btn btn-danger" id="btn-proses-restore" style="width:100%;justify-content:center;padding:12px;">
+          ${ico('restore',18)} Pulihkan Data Sekarang
+        </button>
+      </div>
+    </div>
+
+    <!-- Kartu 3: Status Draf Formulir Auto-Save -->
+    <div class="card" style="padding:20px 24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${ico('history',20)}
+          <span style="font-size:14px;font-weight:700;color:var(--ink);">Perlindungan Draf Input Otomatis (Auto-Save)</span>
+        </div>
+        ${activeDrafts.length > 0 ? `
+          <button class="btn btn-sm btn-ghost" id="btn-bersihkan-semua-draf" style="color:var(--red);font-weight:600;">
+            ${ico('delete',15)} Bersihkan Semua Draf
+          </button>
+        ` : ''}
+      </div>
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:14px;">
+        Sistem secara otomatis mengamankan ketikan Anda setiap detik saat mengisi formulir multi-baris (Barang Masuk &amp; Barang Terjual). Jadi jika Anda tidak sengaja mengarahkan kursor keluar atau browser tertutup, data Anda tidak akan hilang.
+      </p>
+      ${activeDrafts.length > 0 ? `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${activeDrafts.map(d => `
+            <div style="background:var(--surface-hover);padding:10px 14px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+              <div>
+                <b>${d.key.includes('bm') ? 'Draf Barang Masuk' : 'Draf Barang Terjual'}</b> &bull; ${d.val?.rows?.length || 0} baris tersimpan
+                ${d.val?.supplier ? ` (Supplier: ${e(d.val.supplier)})` : ''}
+                ${d.val?.pelanggan ? ` (Pelanggan: ${e(d.val.pelanggan)})` : ''}
+              </div>
+              <span class="badge badge-green" style="font-size:11px;">Tersimpan Aman</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div style="font-size:12px;color:var(--green);display:flex;align-items:center;gap:6px;">
+          ${ico('check_circle',16)} Semua ketikan form Anda dalam kondisi bersih dan tersimpan ke database.
+        </div>
+      `}
+    </div>
+  </div>`;
+
+  content.innerHTML = html;
+
+  // Handler Unduh Backup
+  document.getElementById('btn-unduh-backup')?.addEventListener('click', () => {
+    try {
+      const payload = {
+        aplikasi: "Toko Panglima Bangunan",
+        versi: "2.0",
+        tanggalBackup: new Date().toISOString(),
+        store: store
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `Backup_TokoPanglima_${today()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('Cadangan berhasil diunduh ke komputer Anda!', 'success');
+    } catch (err) {
+      showToast('Gagal mengunduh file cadangan: ' + err.message, 'error');
+    }
+  });
+
+  // Handler Restore Backup
+  document.getElementById('btn-proses-restore')?.addEventListener('click', () => {
+    const fileInput = document.getElementById('input-restore-file');
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      showToast('Pilih file cadangan (.json) terlebih dahulu!', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        const dataStore = parsed.store || parsed;
+
+        if (!dataStore.ruteList && !dataStore.barangMasuk && !dataStore.stokToko) {
+          showToast('File tidak valid: Format cadangan Toko Panglima tidak ditemukan.', 'error');
+          return;
+        }
+
+        if (!confirm('PERHATIAN PENTING:\n\nSeluruh data toko yang ada saat ini akan digantikan dengan data dari file cadangan ini.\n\nApakah Anda yakin ingin melanjutkan proses pemulihan?')) {
+          return;
+        }
+
+        // Salin semua properti ke store
+        Object.keys(dataStore).forEach(k => {
+          store[k] = dataStore[k];
+        });
+
+        saveStore();
+        showToast('Data toko berhasil dipulihkan dari cadangan!', 'success');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } catch (err) {
+        showToast('Gagal memproses file cadangan: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // Bersihkan draf
+  document.getElementById('btn-bersihkan-semua-draf')?.addEventListener('click', () => {
+    if (!confirm('Hapus seluruh draf formulir yang belum disimpan?')) return;
+    try {
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('tp_draft_')) toRemove.push(key);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+      showToast('Seluruh draf berhasil dibersihkan.', 'success');
+      renderBackupPage();
+    } catch (err) {}
   });
 }
 
@@ -1622,6 +3490,8 @@ function renderTableBody(key, query = '') {
   let data = store[key] || [];
   if (currentRuteId && key !== 'ruteList') {
     data = data.filter(x => x.ruteId === currentRuteId);
+  } else if (!currentRuteId && (key === 'barangMasuk' || key === 'uangKeluar')) {
+    data = data.filter(x => !x.ruteId);
   }
   data = applyDateFilter(data, key);
   const filtered = query ? data.filter(x => cfg.searchFn(x, query)) : data;
@@ -1668,6 +3538,11 @@ function renderRowsIntoTbody(key, filtered, tbody) {
     renderGroupedBody(key, items, tbody, cfg);
   } else {
     // Simple numbered list
+    const totalUangNonGrouped = hitungTotalUangKey(key, items);
+    const hasTotal = ['uangKeluar', 'uangKeluarLK', 'uangMasuk', 'tagihan', 'utang'].includes(key);
+    const warna = key === 'uangMasuk' ? 'color:var(--green);' : (key === 'uangKeluar' || key === 'uangKeluarLK' ? 'color:var(--red);' : '');
+    const tandaMin = (key === 'uangKeluar' || key === 'uangKeluarLK') ? '-' : '';
+
     tbody.innerHTML = items.map((item, idx) => `
       <tr class="${tandaiBarisLuar(item).cls.trim()}"${tandaiBarisLuar(item).attr}>
         <td class="group-no-cell" style="width:44px;font-weight:700;color:var(--muted);text-align:center">${idx + 1}</td>
@@ -1679,7 +3554,13 @@ function renderRowsIntoTbody(key, filtered, tbody) {
           </div>
         </td>
       </tr>
-    `).join('');
+    `).join('') + (hasTotal && items.length ? `
+      <tr class="subtotal-row" style="background:var(--surface-hover);font-weight:700;">
+        <td colspan="3" style="text-align:right;padding:12px 14px;">Total (${items.length} data):</td>
+        <td style="padding:12px 14px;font-size:14px;font-weight:700;white-space:nowrap;${warna}">${tandaMin}${fmt(totalUangNonGrouped)}</td>
+        ${cfg.columns.length > 5 ? `<td colspan="${cfg.columns.length - 4}"></td>` : `<td></td>`}
+      </tr>
+    ` : '');
   }
 }
 
@@ -1743,6 +3624,36 @@ function renderGroupedBody(key, items, tbody, cfg) {
     }
   });
 
+  if (groups.length > 1 && cfg.subtotalRowFn) {
+    const totalSemuaUang = hitungTotalUangKey(key, items);
+    if (key === 'barangMasuk') {
+      const totalBesar = items.reduce((s2, b) => s2 + Number(b.jumlah1 || b.jumlah || 0), 0);
+      const totalEcer  = items.reduce((s2, b) => s2 + Number(b.jumlah2 || 0), 0);
+      html += `<tr class="subtotal-row" style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+        <td></td>
+        <td class="subtotal-label" style="font-weight:800;">Total Keseluruhan (${items.length} item)</td>
+        <td class="subtotal-val" style="font-weight:800;">${fmtNum(totalBesar)} item</td>
+        <td class="subtotal-val" style="font-weight:800;">${totalEcer ? fmtNum(totalEcer) + ' pcs' : '—'}</td>
+        <td class="subtotal-val" style="font-weight:800;color:var(--brand);">${fmt(totalSemuaUang)}</td>
+        <td></td><td></td>
+      </tr>`;
+    } else if (key === 'barangTerjual') {
+      html += `<tr class="subtotal-row" style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+        <td></td>
+        <td class="subtotal-label" colspan="3" style="font-weight:800;">Total Keseluruhan (${items.length} jenis barang)</td>
+        <td class="subtotal-val amount-positive" style="font-weight:800;">${fmt(totalSemuaUang)}</td>
+        <td></td>
+      </tr>`;
+    } else if (key === 'rekapPiutang') {
+      html += `<tr class="subtotal-row" style="background:var(--surface-hover);font-weight:800;border-top:2px solid var(--border);">
+        <td></td>
+        <td class="subtotal-label" colspan="2" style="font-weight:800;">Total Keseluruhan (${items.length} faktur)</td>
+        <td class="subtotal-val amount-positive" style="font-weight:800;">${fmt(totalSemuaUang)}</td>
+        <td></td><td></td>
+      </tr>`;
+    }
+  }
+
   tbody.innerHTML = html;
 }
 
@@ -1789,7 +3700,8 @@ function stockDropdownOptions(selectedNama = '') {
 
 /* ── form SINGLE edit (dipakai saat edit satu baris) ── */
 function formBarangMasuk(data = {}) {
-  const satuanOpts = ['Kotak','Set'];
+  const sat1 = data.satuan1 || data.satuan || 'Pcs';
+  const sat2 = data.satuan2 || data.satuan || 'Pcs';
   return `<form id="modal-form">
     <div class="form-grid">
       <div class="form-group">
@@ -1813,33 +3725,37 @@ function formBarangMasuk(data = {}) {
       <div class="form-group">
         <label class="form-label">Satuan (Besar)</label>
         <select class="form-select" name="satuan1">
-          ${satuanOpts.map(s => `<option value="${s}" ${(data.satuan1 || data.satuan) === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${satuanOptions(sat1)}
         </select>
       </div>
 
       <div class="form-group">
         <label class="form-label">Jml (Kecil/Ecer)</label>
-        <input type="number" class="form-input" name="jumlah2" value="${data.jumlah2 || data.jumlah || ''}" min="0" placeholder="(Opsional)" />
+        <input type="number" class="form-input" name="jumlah2" value="${data.jumlah2 || ''}" min="0" placeholder="(Opsional)" />
       </div>
       <div class="form-group">
         <label class="form-label">Satuan (Kecil/Ecer)</label>
         <select class="form-select" name="satuan2">
-          ${satuanOpts.map(s => `<option value="${s}" ${(data.satuan2 || data.satuan) === s ? 'selected' : ''}>${s}</option>`).join('')}
+          ${satuanOptions(sat2)}
         </select>
       </div>
 
-      <div class="form-group form-full">
+      <div class="form-group">
         <label class="form-label">Harga Modal (Total per Satuan Besar)</label>
-        <input type="number" class="form-input" name="hargaModal" value="${data.hargaModal || ''}" placeholder="0" required />
+        <input type="number" class="form-input" name="hargaModal" value="${data.hargaModal !== undefined ? data.hargaModal : ''}" placeholder="0" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Diskon (%) <small class="text-muted">(Opsional)</small></label>
+        <input type="number" class="form-input" name="diskon" value="${data.diskon || ''}" min="0" max="100" step="0.1" placeholder="0" />
       </div>
 
       <div class="form-group">
-        <label class="form-label">Harga Jual (Besar)</label>
-        <input type="number" class="form-input" name="hargaJual1" value="${data.hargaJual1 || data.hargaJual || ''}" placeholder="0" required />
+        <label class="form-label">Harga Jual (Besar) <small class="text-muted">(Opsional)</small></label>
+        <input type="number" class="form-input" name="hargaJual1" value="${data.hargaJual1 || data.hargaJual || ''}" placeholder="(Opsional)" />
       </div>
       <div class="form-group">
-        <label class="form-label">Harga Jual (Kecil/Ecer)</label>
-        <input type="number" class="form-input" name="hargaJual2" value="${data.hargaJual2 || data.hargaJual || ''}" placeholder="(Opsional)" />
+        <label class="form-label">Harga Jual (Kecil/Ecer) <small class="text-muted">(Opsional)</small></label>
+        <input type="number" class="form-input" name="hargaJual2" value="${data.hargaJual2 || ''}" placeholder="(Opsional)" />
       </div>
     </div>
     <div class="form-actions">
@@ -1850,7 +3766,8 @@ function formBarangMasuk(data = {}) {
 }
 
 /* ── SATUAN options helper ── */
-const SATUAN_OPTS = ['Sak','Batang','Dus','Lusin','Pcs','Kaleng','Lembar','Meter','Kg','Ton','Buah','Karung','Balok','Kotak','Sat','Set'];
+// Diperbarui sesuai permintaan klien: hapus Sak, Meter, Ton, Buah, Karung, Balok; tambahkan Bungkus, Roll
+const SATUAN_OPTS = ['Pcs', 'Dus', 'Lusin', 'Bungkus', 'Roll', 'Batang', 'Kaleng', 'Lembar', 'Kg', 'Kotak', 'Set', 'Sat'];
 
 document.addEventListener('change', (e) => {
   if (e.target && e.target.classList.contains('ecer-toggle')) {
@@ -1865,12 +3782,229 @@ document.addEventListener('change', (e) => {
 });
 
 function satuanOptions(sel = '') {
-  return SATUAN_OPTS.map(s => `<option value="${s}" ${sel === s ? 'selected' : ''}>${s}</option>`).join('');
+  let opts = [...SATUAN_OPTS];
+  if (sel && !opts.includes(sel)) {
+    // Pertahankan satuan lama jika ada data lawas
+    opts.push(sel);
+  }
+  return opts.map(s => `<option value="${s}" ${sel === s ? 'selected' : ''}>${s}</option>`).join('');
+}
+
+/* ── HELPER STOK DROPDOWN BARANG MASUK ── */
+function stockDropdownOptionsBM(selectedNama = '') {
+  const stocks = getStokToko().items
+    .slice()
+    .sort((a,b) => a.nama.localeCompare(b.nama, 'id', {sensitivity: 'base'}));
+  let html = '';
+  const isManualDefault = !selectedNama;
+  html += `<option value="__MANUAL__" style="color:var(--brand);font-weight:600" ${isManualDefault ? 'selected' : ''}>+ Isi Barang Baru (Manual)</option>`;
+  html += `<option value="" disabled>-- Pilih dari Master Stok --</option>`;
+  if (stocks.length === 0) {
+    html += '<option value="" disabled>-- Stok Kosong --</option>';
+  } else {
+    stocks.forEach(s => {
+      const sel = selectedNama === s.nama ? 'selected' : '';
+      const dataObj = encodeURIComponent(JSON.stringify(s));
+      const sisaTxt = formatStock(s.stokKecil, s.konversi, s.satuan1, s.satuan2);
+      html += `<option value="${s.nama}" ${sel} data-stock="${dataObj}">${s.nama} (Stok: ${sisaTxt})</option>`;
+    });
+  }
+  return html;
+}
+
+function handleStockSelectionBM(selectEl) {
+  const option = selectEl.options[selectEl.selectedIndex];
+  if (!option || !option.value) return;
+
+  if (option.value === '__MANUAL__') {
+    const parent = selectEl.parentNode;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-input';
+    input.style.width = '100%';
+    if (selectEl.name) input.name = selectEl.name;
+    if (selectEl.dataset.field) input.dataset.field = selectEl.dataset.field;
+    input.placeholder = 'Ketik nama barang baru...';
+    input.required = true;
+    parent.replaceChild(input, selectEl);
+    input.focus();
+    return;
+  }
+
+  let data;
+  try { data = JSON.parse(decodeURIComponent(option.dataset.stock)); }
+  catch (err) { return; }
+
+  const container = selectEl.closest('tr') || selectEl.closest('.form-grid');
+  if (!container) return;
+
+  const satuanEl     = container.querySelector('[name="satuan1"], [data-field="satuan1"], [name="satuan"]');
+  const hargaModalEl = container.querySelector('[name="hargaModal"], [data-field="hargaModal"]');
+
+  if (satuanEl && data.satuan1) {
+    satuanEl.value = data.satuan1;
+  }
+  if (hargaModalEl && data.hargaModal !== undefined) {
+    hargaModalEl.value = data.hargaModal;
+  }
+  if (data.hargaJual1 !== undefined || data.hargaJual !== undefined) {
+    container.dataset.hargaJual = data.hargaJual1 !== undefined ? data.hargaJual1 : data.hargaJual;
+  }
+
+  if (container.tagName === 'TR') {
+    const match = container.id.match(/bm-row-(\d+)/);
+    if (match) bmCalcRow(match[1]);
+  }
+}
+
+function bmCalcRow(rid) {
+  const tr = document.getElementById(`bm-row-${rid}`);
+  if (!tr) return;
+  const qty = Number(tr.querySelector('[data-field="jumlah1"]')?.value || 0);
+  const harga = Number(tr.querySelector('[data-field="hargaModal"]')?.value || 0);
+  const diskon = Math.max(0, Math.min(100, Number(tr.querySelector('[data-field="diskon"]')?.value || 0)));
+  const total = qty * harga * (1 - diskon / 100);
+  const span = document.getElementById(`bm-total-${rid}`);
+  if (span) span.textContent = fmt(total);
+
+  hitungTotalGrandBM();
+}
+
+/* ========================
+   FITUR COPY PASTE / TEMPEL TEKS & DRAF OTOMATIS (BARANG MASUK)
+   ======================== */
+function parsePastedRows(rawText) {
+  if (!rawText || !rawText.trim()) return [];
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const results = [];
+
+  for (const line of lines) {
+    let parts = [];
+    if (line.includes('\t')) {
+      parts = line.split('\t').map(s => s.trim()).filter(Boolean);
+    } else if (line.includes(';')) {
+      parts = line.split(';').map(s => s.trim()).filter(Boolean);
+    } else if (line.includes(',')) {
+      parts = line.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      parts = line.split(/\s{2,}|\s+/).map(s => s.trim()).filter(Boolean);
+    }
+
+    if (parts.length === 0) continue;
+
+    let nama = '', jumlah = 1, satuan = 'Pcs', harga = 0, diskon = 0;
+
+    if (parts.length >= 4) {
+      nama = parts[0];
+      jumlah = parseFloat(parts[1].replace(/[^0-9.]/g, '')) || 1;
+      satuan = parts[2];
+      harga = parseFloat(parts[3].replace(/[^0-9]/g, '')) || 0;
+      if (parts.length >= 5) {
+        diskon = Math.max(0, Math.min(100, parseFloat(parts[4].replace(/[^0-9.]/g, '')) || 0));
+      }
+    } else if (parts.length === 3) {
+      nama = parts[0];
+      const p1Num = parseFloat(parts[1].replace(/[^0-9.]/g, ''));
+      const p2Num = parseFloat(parts[2].replace(/[^0-9]/g, ''));
+      if (!isNaN(p1Num) && !isNaN(p2Num)) {
+        jumlah = p1Num;
+        harga = p2Num;
+      } else if (!isNaN(p1Num)) {
+        jumlah = p1Num;
+        satuan = parts[2];
+      } else {
+        satuan = parts[1];
+        harga = p2Num || 0;
+      }
+    } else if (parts.length === 2) {
+      nama = parts[0];
+      const p1Num = parseFloat(parts[1].replace(/[^0-9]/g, ''));
+      if (p1Num > 500) {
+        harga = p1Num;
+      } else {
+        jumlah = p1Num || 1;
+      }
+    } else {
+      nama = parts[0];
+    }
+
+    // Normalisasi satuan ke SATUAN_OPTS
+    const matched = SATUAN_OPTS.find(s => s.toLowerCase() === satuan.toLowerCase());
+    if (matched) {
+      satuan = matched;
+    } else if (/^rol/i.test(satuan)) {
+      satuan = 'Roll';
+    } else if (/^bgk|^bungkus/i.test(satuan)) {
+      satuan = 'Bungkus';
+    } else if (/^btg|^batang/i.test(satuan)) {
+      satuan = 'Batang';
+    } else {
+      satuan = 'Pcs';
+    }
+
+    results.push({ nama, jumlah, satuan, harga, diskon });
+  }
+  return results;
+}
+
+const DRAFT_KEY_BM = () => `tp_draft_bm_${currentRuteId || 'toko'}_${currentPerjalananId || 'semua'}`;
+
+function saveDraftBM() {
+  try {
+    const tanggal = document.getElementById('bm-tanggal')?.value || '';
+    const supplier = document.getElementById('bm-supplier')?.value || '';
+    const tbody = document.getElementById('bm-rows');
+    if (!tbody) return;
+    const rows = [];
+    Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+      const nama = tr.querySelector('[data-field="nama"]')?.value || '';
+      const jumlah1 = tr.querySelector('[data-field="jumlah1"]')?.value || '';
+      const satuan1 = tr.querySelector('[data-field="satuan1"]')?.value || 'Pcs';
+      const hargaModal = tr.querySelector('[data-field="hargaModal"]')?.value || '';
+      const diskon = tr.querySelector('[data-field="diskon"]')?.value || '';
+      if (nama || jumlah1 || hargaModal) {
+        rows.push({ nama, jumlah1, satuan1, hargaModal, diskon });
+      }
+    });
+    if (rows.length > 0 || supplier) {
+      localStorage.setItem(DRAFT_KEY_BM(), JSON.stringify({ tanggal, supplier, rows, savedAt: Date.now() }));
+    } else {
+      localStorage.removeItem(DRAFT_KEY_BM());
+    }
+  } catch (err) {}
+}
+
+function clearDraftBM() {
+  try { localStorage.removeItem(DRAFT_KEY_BM()); } catch (err) {}
+}
+
+function getDraftBM() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY_BM());
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) { return null; }
+}
+
+function hitungTotalGrandBM() {
+  const tbody = document.getElementById('bm-rows');
+  if (tbody) {
+    let grand = 0;
+    Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+      const q = Number(row.querySelector('[data-field="jumlah1"]')?.value || 0);
+      const h = Number(row.querySelector('[data-field="hargaModal"]')?.value || 0);
+      const d = Math.max(0, Math.min(100, Number(row.querySelector('[data-field="diskon"]')?.value || 0)));
+      grand += q * h * (1 - d / 100);
+    });
+    const gt = document.getElementById('bm-grand-total');
+    if (gt) gt.textContent = fmt(grand);
+  }
 }
 
 /* ── form MULTI-ITEM untuk Tambah Barang Masuk ── */
 function buildMultiBarangMasukForm() {
   return `
+  <div id="bm-draft-container"></div>
+
   <div style="margin-bottom:16px">
     <div class="form-grid">
       <div class="form-group">
@@ -1880,29 +4014,58 @@ function buildMultiBarangMasukForm() {
       </div>
       <div class="form-group">
         <label class="form-label">Nama Supplier</label>
-        <input type="text" class="form-input" id="bm-supplier" placeholder="Contoh: Pak Mamat" required />
+        <input type="text" class="form-input" id="bm-supplier" placeholder="Contoh: PT Semen Padang / Distributor" required />
       </div>
     </div>
   </div>
 
-  <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-    <span style="font-size:13px;font-weight:700;color:var(--ink)">Daftar Barang</span>
-    <button type="button" class="btn btn-ghost btn-sm" id="bm-add-row">${ico('add',16)} Tambah Baris</button>
+  <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <span style="font-size:13px;font-weight:700;color:var(--ink)">Daftar Barang Masuk (Modal Pembelian)</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button type="button" class="btn btn-ghost btn-sm" id="bm-btn-paste" style="color:var(--brand);font-weight:600;">
+        ${ico('content_paste',16)} Tempel dari Excel / WA
+      </button>
+      <button type="button" class="btn btn-ghost btn-sm" id="bm-add-row">${ico('add',16)} Tambah Baris</button>
+    </div>
+  </div>
+
+  <!-- Kotak Tempel / Paste Cepat -->
+  <div id="bm-paste-box" style="display:none;background:var(--surface-hover);border:1.5px dashed var(--brand);border-radius:var(--r-md);padding:14px;margin-bottom:14px;">
+    <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+      ${ico('content_paste',17)} Tempel / Paste Data Cepat dari Excel atau WhatsApp
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">
+      Copy beberapa baris dari Excel / WhatsApp lalu tempel (Ctrl+V) di kotak ini. Format otomatis terdeteksi:<br>
+      <code>Nama Barang [Tab atau Koma] Jumlah [Tab] Satuan [Tab] Harga Modal</code>
+    </div>
+    <textarea id="bm-paste-input" class="form-input" rows="4" style="width:100%;font-family:monospace;font-size:12px;margin-bottom:10px;" placeholder="Contoh format teks:&#10;Cat Samurai Campur Warna	5	Lusin	448000&#10;Kawat Hijau	20	Roll	55000&#10;Paku Seng MMK Jeruk	8	Dus	75000"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button type="button" class="btn btn-ghost btn-sm" id="bm-paste-batal">Batal</button>
+      <button type="button" class="btn btn-primary btn-sm" id="bm-paste-proses">${ico('download',16)} Masukkan ke Tabel</button>
+    </div>
   </div>
 
   <div class="bm-table-wrap">
     <table class="bm-table">
       <thead>
         <tr>
-          <th style="width:25%">Nama Barang</th>
-          <th style="width:15%">Isi Besar<br><small>(Jml & Satuan)</small></th>
-          <th style="width:15%">Isi Ecer<br><small>(Jml & Satuan)</small></th>
-          <th style="width:15%">Hrg Modal<br><small>(Total /Besar)</small></th>
-          <th style="width:22%">Hrg Jual<br><small>(Atas: Besar, Bawah: Ecer)</small></th>
-          <th style="width:8%"></th>
+          <th style="width:33%">Nama Barang</th>
+          <th style="width:10%">Jumlah</th>
+          <th style="width:14%">Satuan</th>
+          <th style="width:14%">Harga Modal</th>
+          <th style="width:8%">Diskon (%)</th>
+          <th style="width:13%">Total Modal</th>
+          <th style="width:8%;text-align:center">Aksi</th>
         </tr>
       </thead>
       <tbody id="bm-rows"></tbody>
+      <tfoot>
+        <tr style="background:var(--surface-hover);font-weight:700;">
+          <td colspan="5" style="text-align:right;padding:10px 14px;">Total Belanja Modal:</td>
+          <td id="bm-grand-total" style="padding:10px 14px;color:var(--brand);font-size:14px;font-weight:800;">Rp 0</td>
+          <td></td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 
@@ -1912,34 +4075,37 @@ function buildMultiBarangMasukForm() {
   </div>`;
 }
 
+let _bmRowCount = 0;
+
 function bmRowHTML(idx) {
-  return `<tr id="bm-row-${idx}">
-    <td style="vertical-align:top"><input type="text" class="form-input" style="width:100%" placeholder="Nama barang" data-field="nama" /></td>
-    <td style="vertical-align:top">
-      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Jml" min="1" data-field="jumlah1" />
+  const rid = idx;
+  return `<tr id="bm-row-${rid}">
+    <td>
+      <select class="form-select" style="width:100%" data-field="nama" data-aksi="pilih-stok-bm" required>
+        ${stockDropdownOptionsBM()}
+      </select>
+    </td>
+    <td>
+      <input type="number" class="form-input" style="width:100%" placeholder="0" min="1" data-field="jumlah1" data-aksi="hitung-baris-bm" data-rid="${rid}" required />
+    </td>
+    <td>
       <select class="form-select" style="width:100%" data-field="satuan1">${satuanOptions()}</select>
-      <div style="margin-top:8px">
-        <label style="font-size:12px; cursor:pointer;"><input type="checkbox" class="ecer-toggle" /> + Eceran?</label>
-      </div>
     </td>
-    <td style="vertical-align:top">
-      <div class="ecer-field" style="display:none">
-        <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Jml" min="0" data-field="jumlah2" />
-        <select class="form-select" style="width:100%" data-field="satuan2">${satuanOptions()}</select>
-      </div>
+    <td>
+      <input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaModal" data-aksi="hitung-baris-bm" data-rid="${rid}" required />
     </td>
-    <td style="vertical-align:top"><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaModal" /></td>
-    <td style="vertical-align:top">
-      <input type="number" class="form-input" style="width:100%;margin-bottom:4px" placeholder="Besar" min="0" data-field="hargaJual1" />
-      <input type="number" class="form-input ecer-field" style="width:100%; display:none;" placeholder="Ecer" min="0" data-field="hargaJual2" />
+    <td>
+      <input type="number" class="form-input" style="width:100%" placeholder="0" min="0" max="100" step="0.1" data-field="diskon" data-aksi="hitung-baris-bm" data-rid="${rid}" title="Diskon opsional, dalam persen (%)" />
     </td>
-    <td style="text-align:center;vertical-align:top">
-      <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bm" data-idx="${idx}" title="Hapus baris">${ico('delete',16)}</button>
+    <td>
+      <span class="bm-total" id="bm-total-${rid}" style="font-size:12px;color:var(--brand);font-weight:700">Rp 0</span>
+    </td>
+    <td style="text-align:center;white-space:nowrap;">
+      <button type="button" class="btn btn-ghost btn-sm" data-aksi="duplikat-baris-bm" data-idx="${rid}" title="Duplikat / Salin baris ini" style="padding:4px 6px;">${ico('content_copy',15)}</button>
+      <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bm" data-idx="${rid}" title="Hapus baris" style="padding:4px 6px;">${ico('delete',15)}</button>
     </td>
   </tr>`;
 }
-
-let _bmRowCount = 0;
 
 function bmAddRow() {
   _bmRowCount++;
@@ -1949,7 +4115,73 @@ function bmAddRow() {
   tr.id = `bm-row-${_bmRowCount}`;
   tr.innerHTML = bmRowHTML(_bmRowCount).replace(/<tr[^>]*>/, '').replace(/<\/tr>/, '');
   tbody.appendChild(tr);
-  tr.querySelector('[data-field="nama"]').focus();
+  const select = tr.querySelector('[data-field="nama"]');
+  if (select && select.value === '__MANUAL__') {
+    handleStockSelectionBM(select);
+  } else if (select) {
+    select.focus();
+  }
+  saveDraftBM();
+}
+
+function bmAddRowWithData(nama = '', jumlah = 1, satuan = 'Pcs', harga = 0, diskon = 0) {
+  _bmRowCount++;
+  const tbody = document.getElementById('bm-rows');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.id = `bm-row-${_bmRowCount}`;
+  tr.innerHTML = bmRowHTML(_bmRowCount).replace(/<tr[^>]*>/, '').replace(/<\/tr>/, '');
+  tbody.appendChild(tr);
+
+  const selNama = tr.querySelector('[data-field="nama"]');
+  if (selNama) {
+    let found = false;
+    if (nama) {
+      for (let i = 0; i < selNama.options.length; i++) {
+        if (selNama.options[i].value && selNama.options[i].value.toLowerCase() === nama.toLowerCase()) {
+          selNama.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) {
+      selNama.value = '__MANUAL__';
+      handleStockSelectionBM(selNama);
+      const txtInp = tr.querySelector('input[data-field="nama"]');
+      if (txtInp && nama) txtInp.value = nama;
+    }
+  }
+
+  const inpJml = tr.querySelector('[data-field="jumlah1"]');
+  if (inpJml && jumlah) inpJml.value = jumlah;
+
+  const selSat = tr.querySelector('[data-field="satuan1"]');
+  if (selSat && satuan) selSat.value = satuan;
+
+  const inpHrg = tr.querySelector('[data-field="hargaModal"]');
+  if (inpHrg && harga !== undefined) inpHrg.value = harga;
+
+  const inpDiskon = tr.querySelector('[data-field="diskon"]');
+  const clampedDiskon = Math.max(0, Math.min(100, Number(diskon) || 0));
+  if (inpDiskon && clampedDiskon) inpDiskon.value = clampedDiskon;
+
+  const spTotal = tr.querySelector('.bm-total');
+  if (spTotal) spTotal.textContent = fmt((Number(jumlah) || 0) * (Number(harga) || 0) * (1 - clampedDiskon / 100));
+}
+
+function bmDuplicateRow(idx) {
+  const row = document.getElementById(`bm-row-${idx}`);
+  if (!row) return;
+  const nama = row.querySelector('[data-field="nama"]')?.value || '';
+  const jumlah1 = row.querySelector('[data-field="jumlah1"]')?.value || '1';
+  const satuan1 = row.querySelector('[data-field="satuan1"]')?.value || 'Pcs';
+  const hargaModal = row.querySelector('[data-field="hargaModal"]')?.value || '0';
+  const diskon = row.querySelector('[data-field="diskon"]')?.value || '0';
+  bmAddRowWithData(nama, jumlah1, satuan1, hargaModal, diskon);
+  hitungTotalGrandBM();
+  saveDraftBM();
+  showToast('Baris berhasil diduplikat!', 'success');
 }
 
 function bmRemoveRow(idx) {
@@ -1957,6 +4189,8 @@ function bmRemoveRow(idx) {
   const tbody = document.getElementById('bm-rows');
   if (row && tbody && tbody.rows.length > 1) {
     row.remove();
+    hitungTotalGrandBM();
+    saveDraftBM();
   } else if (tbody && tbody.rows.length === 1) {
     showToast('Minimal harus ada 1 baris barang.', 'error');
   }
@@ -1965,10 +4199,98 @@ function bmRemoveRow(idx) {
 function openMultiBarangMasukModal() {
   _bmRowCount = 0;
   setLebarModal('920px');
-  openModal('Tambah Barang Masuk', buildMultiBarangMasukForm(), null);
+  const ruteObj = currentRuteId ? store.ruteList.find(r => r.id === currentRuteId) : null;
+  const pjObj = currentPerjalananId ? store.perjalananList.find(p => p.id === currentPerjalananId) : null;
+  const judulSub = ruteObj ? `Rute ${e(ruteObj.nama)}${pjObj ? ` — ${perjalananLabel(pjObj)}` : ''}` : 'Toko Utama';
+  openModal(`Tambah Barang Masuk (${judulSub})`, buildMultiBarangMasukForm(), null);
 
-  bmAddRow();
+  // Periksa apakah ada draf yang belum tersimpan
+  const savedDraft = getDraftBM();
+  if (savedDraft && savedDraft.rows && savedDraft.rows.length > 0) {
+    const dCont = document.getElementById('bm-draft-container');
+    if (dCont) {
+      dCont.innerHTML = `
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--r-md);padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="font-size:12.5px;color:#92400e;display:flex;align-items:center;gap:8px;">
+            ${ico('history',18)}
+            <span><b>Draf Ditemukan (${savedDraft.rows.length} barang).</b> Ketikan Anda otomatis dipulihkan agar tidak hilang saat jendela tertutup.</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost" id="bm-clear-draft-btn" style="color:#b45309;font-weight:700;font-size:12px;">Buang Draf</button>
+        </div>
+      `;
+      document.getElementById('bm-clear-draft-btn')?.addEventListener('click', () => {
+        clearDraftBM();
+        dCont.innerHTML = '';
+        const tb = document.getElementById('bm-rows');
+        if (tb) tb.innerHTML = '';
+        _bmRowCount = 0;
+        bmAddRow();
+        hitungTotalGrandBM();
+        showToast('Draf dibuang.', 'info');
+      });
+    }
+    if (savedDraft.supplier) {
+      const supEl = document.getElementById('bm-supplier');
+      if (supEl) supEl.value = savedDraft.supplier;
+    }
+    if (savedDraft.tanggal) {
+      const tglEl = document.getElementById('bm-tanggal');
+      if (tglEl) tglEl.value = savedDraft.tanggal;
+    }
+    savedDraft.rows.forEach(r => {
+      bmAddRowWithData(r.nama, r.jumlah1, r.satuan1, r.hargaModal, r.diskon || 0);
+    });
+    hitungTotalGrandBM();
+  } else {
+    bmAddRow();
+  }
+
   document.getElementById('bm-add-row').addEventListener('click', bmAddRow);
+
+  // Fitur Tempel / Paste dari Excel atau WA
+  const btnPaste = document.getElementById('bm-btn-paste');
+  const pasteBox = document.getElementById('bm-paste-box');
+  const btnPasteBatal = document.getElementById('bm-paste-batal');
+  const btnPasteProses = document.getElementById('bm-paste-proses');
+
+  if (btnPaste && pasteBox) {
+    btnPaste.addEventListener('click', () => {
+      pasteBox.style.display = pasteBox.style.display === 'none' ? 'block' : 'none';
+      if (pasteBox.style.display === 'block') {
+        document.getElementById('bm-paste-input')?.focus();
+      }
+    });
+    btnPasteBatal?.addEventListener('click', () => {
+      pasteBox.style.display = 'none';
+    });
+    btnPasteProses?.addEventListener('click', () => {
+      const text = document.getElementById('bm-paste-input')?.value || '';
+      const parsed = parsePastedRows(text);
+      if (!parsed.length) {
+        showToast('Format teks belum dikenali. Pastikan ada nama barang!', 'error');
+        return;
+      }
+      parsed.forEach(item => {
+        bmAddRowWithData(item.nama, item.jumlah, item.satuan, item.harga, item.diskon || 0);
+      });
+      document.getElementById('bm-paste-input').value = '';
+      pasteBox.style.display = 'none';
+      hitungTotalGrandBM();
+      saveDraftBM();
+      showToast(`${parsed.length} baris barang berhasil ditambahkan!`, 'success');
+    });
+  }
+
+  // Auto-save draft saat ada perubahan ketikan di modal
+  const formBox = modalBody.querySelector('.bm-table-wrap')?.parentNode;
+  if (formBox) {
+    formBox.addEventListener('input', () => {
+      saveDraftBM();
+    });
+    formBox.addEventListener('change', () => {
+      saveDraftBM();
+    });
+  }
 
   document.getElementById('bm-simpan').addEventListener('click', () => {
     const tanggal  = document.getElementById('bm-tanggal').value.trim();
@@ -1984,32 +4306,48 @@ function openMultiBarangMasukModal() {
     const items = [];
     let hasError = false;
 
-    rows.forEach((tr, i) => {
-      const nama      = tr.querySelector('[data-field="nama"]').value.trim();
-      const jumlah1   = Number(tr.querySelector('[data-field="jumlah1"]').value);
-      const satuan1   = tr.querySelector('[data-field="satuan1"]').value;
-      const jumlah2   = Number(tr.querySelector('[data-field="jumlah2"]').value);
-      const satuan2   = tr.querySelector('[data-field="satuan2"]').value;
-      const hargaModal= Number(tr.querySelector('[data-field="hargaModal"]').value);
-      const hargaJual1= Number(tr.querySelector('[data-field="hargaJual1"]').value);
-      const hargaJual2= Number(tr.querySelector('[data-field="hargaJual2"]').value);
+    rows.forEach((tr) => {
+      const namaEl = tr.querySelector('[data-field="nama"]');
+      const nama = namaEl ? namaEl.value.trim() : '';
+      const jumlah1 = Number(tr.querySelector('[data-field="jumlah1"]')?.value || 0);
+      const satuan1 = tr.querySelector('[data-field="satuan1"]')?.value || 'Pcs';
+      const hargaModalVal = tr.querySelector('[data-field="hargaModal"]')?.value;
+      const hargaModal = Number(hargaModalVal || 0);
+      const diskon = Math.max(0, Math.min(100, Number(tr.querySelector('[data-field="diskon"]')?.value || 0)));
+      const hargaJual1 = Number(tr.dataset.hargaJual || 0);
 
-      if (!nama || !jumlah1 || !hargaModal || !hargaJual1) {
+      if (!nama || !jumlah1 || hargaModalVal === undefined || hargaModalVal === '' || isNaN(hargaModal)) {
         tr.style.outline = '2px solid var(--red)';
         hasError = true;
         return;
       }
       tr.style.outline = '';
-      items.push({ id: uid(), tanggal, supplier, nama, jumlah1, satuan1, jumlah2, satuan2, hargaModal, hargaJual1, hargaJual2 });
+      items.push({
+        id: uid(),
+        ruteId: currentRuteId || null,
+        perjalananId: currentPerjalananId || null,
+        tanggal,
+        supplier,
+        nama,
+        jumlah: jumlah1,
+        jumlah1: jumlah1,
+        satuan: satuan1,
+        satuan1: satuan1,
+        hargaModal,
+        diskon: diskon || 0,
+        hargaJual: hargaJual1,
+        hargaJual1: hargaJual1
+      });
     });
 
-    if (hasError) { showToast('Lengkapi semua baris barang terlebih dahulu!', 'error'); return; }
+    if (hasError) { showToast('Lengkapi nama barang, jumlah, dan harga modal pada semua baris!', 'error'); return; }
     if (!items.length) { showToast('Tidak ada barang untuk disimpan.', 'error'); return; }
 
     store.barangMasuk.push(...items);
     saveStore();
+    clearDraftBM(); // Hapus draf setelah berhasil disimpan
     closeModal();
-    renderList('barangMasuk');
+    refreshAfterListChange('barangMasuk');
     showToast(`${items.length} barang dari ${e(supplier)} berhasil disimpan!`, 'success');
   });
 }
@@ -2187,10 +4525,50 @@ function formSimple(fields) {
 }
 
 /* ========================
-   MULTI-ITEM BARANG TERJUAL
+   MULTI-ITEM BARANG TERJUAL (DRAF & PASTE OTOMATIS)
    ======================== */
+const DRAFT_KEY_BT = () => `tp_draft_bt_${currentRuteId || 'toko'}_${currentPerjalananId || 'semua'}`;
+
+function saveDraftBT() {
+  try {
+    const tanggal = document.getElementById('bt-tanggal')?.value || '';
+    const pelanggan = document.getElementById('bt-pelanggan')?.value || '';
+    const noFaktur = document.getElementById('bt-nofaktur')?.value || '';
+    const tbody = document.getElementById('bt-rows');
+    if (!tbody) return;
+    const rows = [];
+    Array.from(tbody.querySelectorAll('tr')).forEach(tr => {
+      const nama = tr.querySelector('[data-field="nama"]')?.value || '';
+      const jumlah = tr.querySelector('[data-field="jumlah"]')?.value || '';
+      const satuan = tr.querySelector('[data-field="satuan"]')?.value || 'Pcs';
+      const hargaJual = tr.querySelector('[data-field="hargaJual"]')?.value || '';
+      if (nama || jumlah || hargaJual) {
+        rows.push({ nama, jumlah, satuan, hargaJual });
+      }
+    });
+    if (rows.length > 0 || pelanggan) {
+      localStorage.setItem(DRAFT_KEY_BT(), JSON.stringify({ tanggal, pelanggan, noFaktur, rows, savedAt: Date.now() }));
+    } else {
+      localStorage.removeItem(DRAFT_KEY_BT());
+    }
+  } catch (err) {}
+}
+
+function clearDraftBT() {
+  try { localStorage.removeItem(DRAFT_KEY_BT()); } catch (err) {}
+}
+
+function getDraftBT() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY_BT());
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) { return null; }
+}
+
 function buildMultiBarangTerjualForm() {
   return `
+  <div id="bt-draft-container"></div>
+
   <div style="margin-bottom:16px">
     <div class="form-grid">
       <div class="form-group">
@@ -2209,9 +4587,30 @@ function buildMultiBarangTerjualForm() {
     </div>
   </div>
 
-  <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+  <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
     <span style="font-size:13px;font-weight:700;color:var(--ink)">Daftar Barang Terjual</span>
-    <button type="button" class="btn btn-ghost btn-sm" id="bt-add-row">${ico('add',16)} Tambah Baris</button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button type="button" class="btn btn-ghost btn-sm" id="bt-btn-paste" style="color:var(--brand);font-weight:600;">
+        ${ico('content_paste',16)} Tempel dari Excel / WA
+      </button>
+      <button type="button" class="btn btn-ghost btn-sm" id="bt-add-row">${ico('add',16)} Tambah Baris</button>
+    </div>
+  </div>
+
+  <!-- Kotak Tempel Cepat BT -->
+  <div id="bt-paste-box" style="display:none;background:var(--surface-hover);border:1.5px dashed var(--brand);border-radius:var(--r-md);padding:14px;margin-bottom:14px;">
+    <div style="font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+      ${ico('content_paste',17)} Tempel / Paste Data Cepat dari Excel atau WhatsApp
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin-bottom:8px;">
+      Copy baris dari Excel / WhatsApp lalu tempel (Ctrl+V) di sini. Format otomatis terdeteksi:<br>
+      <code>Nama Barang [Tab atau Koma] Qty [Tab] Satuan [Tab] Harga Jual</code>
+    </div>
+    <textarea id="bt-paste-input" class="form-input" rows="4" style="width:100%;font-family:monospace;font-size:12px;margin-bottom:10px;" placeholder="Contoh:&#10;Kawat Hijau	15	Roll	70000&#10;Cat Samurai Campur Warna	4	Lusin	550000"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button type="button" class="btn btn-ghost btn-sm" id="bt-paste-batal">Batal</button>
+      <button type="button" class="btn btn-primary btn-sm" id="bt-paste-proses">${ico('download',16)} Masukkan ke Tabel</button>
+    </div>
   </div>
 
   <div class="bm-table-wrap">
@@ -2223,7 +4622,7 @@ function buildMultiBarangTerjualForm() {
           <th style="width:14%">Satuan</th>
           <th style="width:18%">Harga Jual</th>
           <th style="width:12%">Total</th>
-          <th style="width:8%"></th>
+          <th style="width:8%;text-align:center">Aksi</th>
         </tr>
       </thead>
       <tbody id="bt-rows"></tbody>
@@ -2238,14 +4637,9 @@ function buildMultiBarangTerjualForm() {
 
 let _btRowCount = 0;
 
-function btAddRow() {
-  _btRowCount++;
-  const tbody = document.getElementById('bt-rows');
-  if (!tbody) return;
-  const tr = document.createElement('tr');
-  tr.id = `bt-row-${_btRowCount}`;
-  const rid = _btRowCount;
-  tr.innerHTML = `
+function btRowHTML(idx) {
+  const rid = idx;
+  return `<tr id="bt-row-${rid}">
     <td>
       <select class="form-select" style="width:100%" data-field="nama" data-aksi="pilih-stok" required>
         ${stockDropdownOptions()}
@@ -2255,9 +4649,21 @@ function btAddRow() {
     <td><select class="form-select" style="width:100%" data-field="satuan">${satuanOptions()}</select></td>
     <td><input type="number" class="form-input" style="width:100%" placeholder="0" min="0" data-field="hargaJual" data-aksi="hitung-baris-bt" data-rid="${rid}" /></td>
     <td><span class="bt-total" id="bt-total-${rid}" style="font-size:12px;color:var(--green);font-weight:700">Rp 0</span></td>
-    <td style="text-align:center">
-      <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bt" data-rid="${rid}">${ico('delete',16)}</button>
-    </td>`;
+    <td style="text-align:center;white-space:nowrap;">
+      <button type="button" class="btn btn-ghost btn-sm" data-aksi="duplikat-baris-bt" data-rid="${rid}" title="Duplikat baris" style="padding:4px 6px;">${ico('content_copy',15)}</button>
+      <button type="button" class="btn btn-danger btn-sm" data-aksi="hapus-baris-bt" data-rid="${rid}" title="Hapus baris" style="padding:4px 6px;">${ico('delete',15)}</button>
+    </td>
+  </tr>`;
+}
+
+function btAddRow() {
+  _btRowCount++;
+  const tbody = document.getElementById('bt-rows');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  tr.id = `bt-row-${_btRowCount}`;
+  const rid = _btRowCount;
+  tr.innerHTML = btRowHTML(rid).replace(/<tr[^>]*>/, '').replace(/<\/tr>/, '');
   tbody.appendChild(tr);
   const select = tr.querySelector('[data-field="nama"]');
   if (select && select.value === '__MANUAL__') {
@@ -2265,6 +4671,62 @@ function btAddRow() {
   } else if (select) {
     select.focus();
   }
+  saveDraftBT();
+}
+
+function btAddRowWithData(nama = '', jumlah = 1, satuan = 'Pcs', harga = 0) {
+  _btRowCount++;
+  const tbody = document.getElementById('bt-rows');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  const rid = _btRowCount;
+  tr.id = `bt-row-${rid}`;
+  tr.innerHTML = btRowHTML(rid).replace(/<tr[^>]*>/, '').replace(/<\/tr>/, '');
+  tbody.appendChild(tr);
+
+  const selNama = tr.querySelector('[data-field="nama"]');
+  if (selNama) {
+    let found = false;
+    if (nama) {
+      for (let i = 0; i < selNama.options.length; i++) {
+        if (selNama.options[i].value && selNama.options[i].value.toLowerCase() === nama.toLowerCase()) {
+          selNama.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+    }
+    if (!found) {
+      selNama.value = '__MANUAL__';
+      handleStockSelection(selNama);
+      const txtInp = tr.querySelector('input[data-field="nama"]');
+      if (txtInp && nama) txtInp.value = nama;
+    }
+  }
+
+  const inpJml = tr.querySelector('[data-field="jumlah"]');
+  if (inpJml && jumlah) inpJml.value = jumlah;
+
+  const selSat = tr.querySelector('[data-field="satuan"]');
+  if (selSat && satuan) selSat.value = satuan;
+
+  const inpHrg = tr.querySelector('[data-field="hargaJual"]');
+  if (inpHrg && harga !== undefined) inpHrg.value = harga;
+
+  const spTotal = tr.querySelector('.bt-total');
+  if (spTotal) spTotal.textContent = fmt((Number(jumlah) || 0) * (Number(harga) || 0));
+}
+
+function btDuplicateRow(idx) {
+  const row = document.getElementById(`bt-row-${idx}`);
+  if (!row) return;
+  const nama = row.querySelector('[data-field="nama"]')?.value || '';
+  const jumlah = row.querySelector('[data-field="jumlah"]')?.value || '1';
+  const satuan = row.querySelector('[data-field="satuan"]')?.value || 'Pcs';
+  const hargaJual = row.querySelector('[data-field="hargaJual"]')?.value || '0';
+  btAddRowWithData(nama, jumlah, satuan, hargaJual);
+  saveDraftBT();
+  showToast('Baris berhasil diduplikat!', 'success');
 }
 
 function btCalcRow(idx) {
@@ -2279,8 +4741,12 @@ function btCalcRow(idx) {
 function btRemoveRow(idx) {
   const row   = document.getElementById(`bt-row-${idx}`);
   const tbody = document.getElementById('bt-rows');
-  if (row && tbody && tbody.rows.length > 1) row.remove();
-  else showToast('Minimal harus ada 1 baris barang.', 'error');
+  if (row && tbody && tbody.rows.length > 1) {
+    row.remove();
+    saveDraftBT();
+  } else {
+    showToast('Minimal harus ada 1 baris barang.', 'error');
+  }
 }
 
 function handleStockSelection(selectEl) {
@@ -2353,10 +4819,94 @@ function handleStockSelection(selectEl) {
 
 function openMultiBarangTerjualModal() {
   _btRowCount = 0;
-  setLebarModal('840px');
+  setLebarModal('880px');
   openModal('Tambah Barang Terjual', buildMultiBarangTerjualForm(), null);
-  btAddRow();
+
+  // Periksa draf Barang Terjual
+  const savedDraft = getDraftBT();
+  if (savedDraft && savedDraft.rows && savedDraft.rows.length > 0) {
+    const dCont = document.getElementById('bt-draft-container');
+    if (dCont) {
+      dCont.innerHTML = `
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--r-md);padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="font-size:12.5px;color:#92400e;display:flex;align-items:center;gap:8px;">
+            ${ico('history',18)}
+            <span><b>Draf Ditemukan (${savedDraft.rows.length} barang).</b> Ketikan penjualan dipulihkan otomatis agar tidak hilang.</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost" id="bt-clear-draft-btn" style="color:#b45309;font-weight:700;font-size:12px;">Buang Draf</button>
+        </div>
+      `;
+      document.getElementById('bt-clear-draft-btn')?.addEventListener('click', () => {
+        clearDraftBT();
+        dCont.innerHTML = '';
+        const tb = document.getElementById('bt-rows');
+        if (tb) tb.innerHTML = '';
+        _btRowCount = 0;
+        btAddRow();
+        showToast('Draf dibuang.', 'info');
+      });
+    }
+    if (savedDraft.pelanggan) {
+      const pelEl = document.getElementById('bt-pelanggan');
+      if (pelEl) pelEl.value = savedDraft.pelanggan;
+    }
+    if (savedDraft.noFaktur) {
+      const fakEl = document.getElementById('bt-nofaktur');
+      if (fakEl) fakEl.value = savedDraft.noFaktur;
+    }
+    if (savedDraft.tanggal) {
+      const tglEl = document.getElementById('bt-tanggal');
+      if (tglEl) tglEl.value = savedDraft.tanggal;
+    }
+    savedDraft.rows.forEach(r => {
+      btAddRowWithData(r.nama, r.jumlah, r.satuan, r.hargaJual);
+    });
+  } else {
+    btAddRow();
+  }
+
   document.getElementById('bt-add-row').addEventListener('click', btAddRow);
+
+  // Paste cepat BT
+  const btnPaste = document.getElementById('bt-btn-paste');
+  const pasteBox = document.getElementById('bt-paste-box');
+  const btnPasteBatal = document.getElementById('bt-paste-batal');
+  const btnPasteProses = document.getElementById('bt-paste-proses');
+
+  if (btnPaste && pasteBox) {
+    btnPaste.addEventListener('click', () => {
+      pasteBox.style.display = pasteBox.style.display === 'none' ? 'block' : 'none';
+      if (pasteBox.style.display === 'block') {
+        document.getElementById('bt-paste-input')?.focus();
+      }
+    });
+    btnPasteBatal?.addEventListener('click', () => {
+      pasteBox.style.display = 'none';
+    });
+    btnPasteProses?.addEventListener('click', () => {
+      const text = document.getElementById('bt-paste-input')?.value || '';
+      const parsed = parsePastedRows(text);
+      if (!parsed.length) {
+        showToast('Format teks belum dikenali. Pastikan ada nama barang!', 'error');
+        return;
+      }
+      parsed.forEach(item => {
+        btAddRowWithData(item.nama, item.jumlah, item.satuan, item.harga);
+      });
+      document.getElementById('bt-paste-input').value = '';
+      pasteBox.style.display = 'none';
+      saveDraftBT();
+      showToast(`${parsed.length} baris barang berhasil ditambahkan!`, 'success');
+    });
+  }
+
+  // Live save draft
+  const formBox = modalBody.querySelector('.bm-table-wrap')?.parentNode;
+  if (formBox) {
+    formBox.addEventListener('input', () => { saveDraftBT(); });
+    formBox.addEventListener('change', () => { saveDraftBT(); });
+  }
+
   document.getElementById('bt-simpan').addEventListener('click', () => {
     const tanggal   = document.getElementById('bt-tanggal').value.trim();
     const salahTgl  = tanggalDiLuarGrup(tanggal);
@@ -2389,6 +4939,7 @@ function openMultiBarangTerjualModal() {
     if (hasError) { showToast('Lengkapi semua baris terlebih dahulu!', 'error'); return; }
     store.barangTerjual.push(...items);
     saveStore();
+    clearDraftBT(); // Hapus draf setelah berhasil disimpan
     closeModal();
     refreshAfterListChange('barangTerjual');
     showToast(`${items.length} barang terjual ke ${e(pelanggan)} berhasil disimpan!`, 'success');
@@ -2420,8 +4971,10 @@ function openAddModal(key) {
     const fd = Object.fromEntries(new FormData(form));
     const salahTgl = tanggalDiLuarGrup(fd.tanggal);
     if (salahTgl) { showToast(salahTgl, 'error'); return false; }
-    // coerce number fields
-    ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
+    const NUM_FIELDS = ['jumlah','hargaModal','diskon','hargaJual','hargaJual1','hargaJual2','jumlah1','jumlah2'];
+    NUM_FIELDS.forEach(f => { if (fd[f] !== undefined && fd[f] !== '') fd[f] = Number(fd[f]); });
+    if (fd.diskon === '') fd.diskon = 0;
+    if (fd.diskon !== undefined) fd.diskon = Math.max(0, Math.min(100, Number(fd.diskon || 0)));
     fd.id = uid();
     if (currentRuteId && key !== 'ruteList') fd.ruteId = currentRuteId;
     if (currentPerjalananId && key !== 'ruteList') fd.perjalananId = currentPerjalananId;
@@ -2445,7 +4998,10 @@ function openEditModal(key, id) {
     const fd = Object.fromEntries(new FormData(form));
     const salahTgl = tanggalDiLuarGrup(fd.tanggal);
     if (salahTgl) { showToast(salahTgl, 'error'); return false; }
-    ['jumlah','hargaModal','hargaJual'].forEach(f => { if (fd[f]) fd[f] = Number(fd[f]); });
+    const NUM_FIELDS = ['jumlah','hargaModal','diskon','hargaJual','hargaJual1','hargaJual2','jumlah1','jumlah2'];
+    NUM_FIELDS.forEach(f => { if (fd[f] !== undefined && fd[f] !== '') fd[f] = Number(fd[f]); });
+    if (fd.diskon === '') fd.diskon = 0;
+    if (fd.diskon !== undefined) fd.diskon = Math.max(0, Math.min(100, Number(fd.diskon || 0)));
     const idx = store[key].findIndex(x => x.id === id);
     store[key][idx] = { ...item, ...fd };
 
@@ -2946,7 +5502,7 @@ function buildLaporan(m, y) {
     const uangKeluarUtama = sumField(inMonth(store.uangKeluar), 'jumlah');
     const uangKeluarLK    = sumField(inMonth(store.uangKeluarLK), 'jumlah');
     const totalBelanjaBarang = inMonth(store.barangMasuk).reduce(
-      (s, b) => s + Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0), 0
+      (s, b) => s + bmItemTotal(b), 0
     );
     const totalPengeluaran= uangKeluarUtama + uangKeluarLK + totalBelanjaBarang;
 
@@ -3398,9 +5954,9 @@ const ASAL_LABA_RUGI = [
 
   { sisi: 'keluar', baris: 'Pembelian Barang Masuk (Modal Stok)', key: 'barangMasuk',
     menu: 'Toko Utama → Barang Masuk',
-    kolom: 'Jumlah, Harga Modal',
-    rumus: 'Jumlah (satuan utama) × Harga Modal pada setiap baris barang, lalu dijumlahkan',
-    hitung: (r) => r.reduce((s, b) => s + Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0), 0) },
+    kolom: 'Jumlah, Harga Modal, Diskon',
+    rumus: 'Jumlah (satuan utama) × Harga Modal × (1 − Diskon%) pada setiap baris barang, lalu dijumlahkan',
+    hitung: (r) => r.reduce((s, b) => s + bmItemTotal(b), 0) },
 ];
 
 /* Baris di kartu "Utang & Piutang". Semuanya di luar hitungan laba/rugi. */
@@ -3430,7 +5986,7 @@ function renderPenjelasanLaporan() {
   function contohTerbesar(key, rows) {
     if (!rows.length) return '—';
     const nilai = (b) => key === 'barangTerjual' ? Number(b.jumlah || 0) * Number(b.hargaJual || 0)
-                 : key === 'barangMasuk'  ? Number(b.jumlah1 || b.jumlah || 0) * Number(b.hargaModal || 0)
+                 : key === 'barangMasuk'  ? bmItemTotal(b)
                  : Number(b.jumlah || 0);
     const top = rows.slice().sort((a, b) => nilai(b) - nilai(a))[0];
     const nama = top.keterangan || top.nama || top.pelanggan || top.supplier || '(tanpa keterangan)';

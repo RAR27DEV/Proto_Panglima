@@ -34,11 +34,7 @@
       </a>
 
       <div class="nav-section-label">Operasional</div>
-      <div class="nav-section-label collapsible" data-submenu="submenu-toko">
-        <span>Toko Utama</span>
-        <span class="chevron" id="chevron-toko">▼</span>
-      </div>
-      <div class="submenu" id="submenu-toko">
+      <div id="submenu-toko" style="display:block!important">
         <a class="nav-item" data-page="barang-masuk" id="nav-barang-masuk">
           <span class="nav-icon"><span class="material-symbols-outlined">inventory_2</span></span>
           <span>Barang Masuk</span>
@@ -62,6 +58,14 @@
       </div>
 
       <div class="nav-section-label">Inventory &amp; Finance</div>
+      <a class="nav-item" data-page="rekap-semua-rute" id="nav-rekap-semua-rute">
+        <span class="nav-icon"><span class="material-symbols-outlined">query_stats</span></span>
+        <span>Rekap Semua Rute</span>
+      </a>
+      <a class="nav-item" data-page="rekap-per-bulan" id="nav-rekap-per-bulan">
+        <span class="nav-icon"><span class="material-symbols-outlined">calendar_month</span></span>
+        <span>Rekap Per Bulan</span>
+      </a>
       <a class="nav-item" data-page="stok-toko" id="nav-stok-toko">
         <span class="nav-icon"><span class="material-symbols-outlined">shelves</span></span>
         <span>Stok Toko</span>
@@ -73,6 +77,10 @@
       <a class="nav-item" data-page="pengaturan-rute" id="nav-pengaturan-rute">
         <span class="nav-icon"><span class="material-symbols-outlined">map</span></span>
         <span>Manajemen Rute</span>
+      </a>
+      <a class="nav-item" data-page="backup-data" id="nav-backup-data">
+        <span class="nav-icon"><span class="material-symbols-outlined">cloud_sync</span></span>
+        <span>Backup &amp; Restore</span>
       </a>
     </nav>
   </aside>
