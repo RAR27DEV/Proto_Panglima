@@ -49,12 +49,12 @@ function getMonthYear(iso) {
 }
 
 function formatStock(stokKecil, konversi, sat1, sat2) {
-  if (sat1 === sat2 || konversi <= 1) return `${stokKecil} ${sat2}`;
+  if (!sat1 || sat1 === sat2 || konversi <= 1) return `${fmtNum(stokKecil)} ${sat2}`;
   const qty1 = Math.floor(stokKecil / konversi);
   const qty2 = stokKecil % konversi;
   let res = [];
-  if (qty1 > 0) res.push(`${qty1} ${sat1}`);
-  if (qty2 > 0 || qty1 === 0) res.push(`${qty2} ${sat2}`);
+  if (qty1 > 0) res.push(`${fmtNum(qty1)} ${sat1}`);
+  if (qty2 > 0 || qty1 === 0) res.push(`${fmtNum(qty2)} ${sat2}`);
   return res.join(' ');
 }
 
@@ -3784,18 +3784,7 @@ function renderGroupedBody(key, items, tbody, cfg) {
 /* ========================
    FORM BUILDERS
    ======================== */
-/* ── HELPER STOK DROPDOWN ── */
-function formatStock(stokKecil, konversi, sat1, sat2) {
-  if (!sat1 || sat1 === sat2 || konversi <= 1) {
-    return `${fmtNum(stokKecil)} ${sat2}`;
-  }
-  const s1 = Math.floor(stokKecil / konversi);
-  const s2 = stokKecil % konversi;
-  let res = [];
-  if (s1 > 0) res.push(`${fmtNum(s1)} ${sat1}`);
-  if (s2 > 0) res.push(`${fmtNum(s2)} ${sat2}`);
-  return res.length > 0 ? res.join(' ') : `0 ${sat2}`;
-}
+/* ── HELPER STOK DROPDOWN ── (fungsi formatStock sudah dideklarasikan di atas) */
 
 function getAvailableStock() {
   return getStokToko().items
