@@ -29,7 +29,7 @@ export async function verifySession(req, res) {
 
   const supabase = createClient(
     process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+    process.env.SUPABASE_ANON_KEY
   );
 
   // Cek sesi & idle timeout (8 jam)
@@ -76,3 +76,4 @@ export function verifyCsrf(req, session) {
   const sent = req.headers['x-csrf-token'] ?? '';
   return sent && session.token && sent === session.token;
 }
+

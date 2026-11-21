@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS perjalanan (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS barang_masuk (
   id           VARCHAR(40) NOT NULL,
+  rute_id      VARCHAR(40) NULL,
+  perjalanan_id VARCHAR(40) NULL,
   tanggal      DATE NOT NULL,
   supplier     VARCHAR(150) NOT NULL DEFAULT '',
   nama         VARCHAR(200) NOT NULL DEFAULT '',
@@ -58,10 +60,13 @@ CREATE TABLE IF NOT EXISTS barang_masuk (
   jumlah       DECIMAL(14,2) NULL,      -- kompatibilitas data lama
   satuan       VARCHAR(30)  NULL,
   harga_modal  DECIMAL(14,2) NOT NULL DEFAULT 0,
+  diskon       DECIMAL(6,2) NOT NULL DEFAULT 0,
   harga_jual   DECIMAL(14,2) NULL,
   harga_jual1  DECIMAL(14,2) NULL,
   harga_jual2  DECIMAL(14,2) NULL,
   PRIMARY KEY (id),
+  KEY idx_bm_rute (rute_id),
+  KEY idx_bm_perjalanan (perjalanan_id),
   KEY idx_bm_tanggal (tanggal),
   KEY idx_bm_nama (nama)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -29,15 +29,27 @@ CREATE TABLE IF NOT EXISTS perjalanan (
 );
 
 CREATE TABLE IF NOT EXISTS barang_masuk (
+  id            TEXT PRIMARY KEY,
+  rute_id       TEXT REFERENCES rute(id) ON DELETE SET NULL,
+  perjalanan_id TEXT REFERENCES perjalanan(id) ON DELETE SET NULL,
+  tanggal       TEXT NOT NULL,
+  supplier      TEXT NOT NULL DEFAULT '',
+  nama          TEXT NOT NULL DEFAULT '',
+  jumlah1       REAL, satuan1 TEXT,
+  jumlah2       REAL, satuan2 TEXT,
+  jumlah        REAL, satuan  TEXT,
+  harga_modal   REAL NOT NULL DEFAULT 0,
+  diskon        REAL NOT NULL DEFAULT 0,
+  harga_jual    REAL, harga_jual1 REAL, harga_jual2 REAL
+);
+
+CREATE TABLE IF NOT EXISTS stok_toko (
   id          TEXT PRIMARY KEY,
-  tanggal     TEXT NOT NULL,
-  supplier    TEXT NOT NULL DEFAULT '',
   nama        TEXT NOT NULL DEFAULT '',
-  jumlah1     REAL, satuan1 TEXT,
-  jumlah2     REAL, satuan2 TEXT,
-  jumlah      REAL, satuan  TEXT,
+  jumlah      REAL NOT NULL DEFAULT 0,
+  satuan      TEXT,
   harga_modal REAL NOT NULL DEFAULT 0,
-  harga_jual  REAL, harga_jual1 REAL, harga_jual2 REAL
+  harga_jual  REAL NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS utang (

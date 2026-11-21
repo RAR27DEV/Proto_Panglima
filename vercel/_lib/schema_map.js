@@ -98,3 +98,4 @@ export const SCHEMA_MAP = {
     enum: {},
   },
 };
+

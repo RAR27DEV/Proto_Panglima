@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   if (token) {
     const supabase = createClient(
       process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
+      process.env.SUPABASE_ANON_KEY
     );
     await supabase.from('sesi').delete().eq('token', token).catch(() => {});
   }
@@ -19,3 +19,4 @@ export default async function handler(req, res) {
   res.setHeader('Set-Cookie', 'TPSESS=; Path=/; HttpOnly; Max-Age=0; SameSite=Strict');
   return res.status(200).json({ ok: true });
 }
+
